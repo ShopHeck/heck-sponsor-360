@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080808">
+  <title>Michael Heckert Sponsorship Portal</title>
+  <meta name="description" content="Explore available fight-night sponsorship placements on Michael Heckert's BKFC Clearwater apparel.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="portal-shell">
+    <header class="topbar">
+      <a class="brand" href="https://teamheck.netlify.app" target="_top" aria-label="Team Heck home">
+        <span class="brand-mark">HKRT</span>
+        <span class="brand-copy"><strong>MICHAEL HECKERT</strong><small>BKFC CLEARWATER SPONSORSHIP PORTAL</small></span>
+      </a>
+      <div class="event-lockup"><span>FIGHT NIGHT</span><strong>OCT 23, 2026</strong></div>
+    </header>
+
+    <section class="experience" aria-label="Interactive sponsorship placement viewer">
+      <aside class="intro-panel">
+        <p class="eyebrow">YOUR BRAND. FIGHT NIGHT.</p>
+        <h1>Choose your<br><em>position.</em></h1>
+        <p class="intro-copy">Rotate Michael to explore every available placement. Switch apparel, select a position, and preview your logo.</p>
+        <div class="garment-tabs" role="tablist" aria-label="Apparel">
+          <button class="garment-tab is-active" data-garment="shorts" role="tab" aria-selected="true">Fight shorts</button>
+          <button class="garment-tab" data-garment="shirt" role="tab" aria-selected="false">Black T-shirt</button>
+        </div>
+        <div class="view-actions" aria-label="Quick views">
+          <button data-view="front">Front</button>
+          <button data-view="back">Back</button>
+          <button data-view="left">Left</button>
+          <button data-view="right">Right</button>
+        </div>
+        <div class="drag-instruction"><span class="drag-line"></span> Drag the athlete to rotate 360°</div>
+      </aside>
+
+      <div class="model-stage" id="modelStage">
+        <div class="stage-glow"></div>
+        <div class="frame-wrap" id="frameWrap">
+          <img id="athleteFrame" src="assets/processed/heckert-00.webp" alt="Michael Heckert, front view in fight shorts" draggable="false">
+          <svg id="garmentOverlay" class="garment-overlay" viewBox="0 0 900 1600" aria-hidden="true">
+            <defs>
+              <linearGradient id="shirtFabric" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#242424"/>
+                <stop offset="0.45" stop-color="#080808"/>
+                <stop offset="1" stop-color="#171717"/>
+              </linearGradient>
+              <linearGradient id="shortFabric" x1="0" y1="0" x2="0.8" y2="1">
+                <stop offset="0" stop-color="#f57714" stop-opacity=".94"/>
+                <stop offset=".5" stop-color="#b93c08" stop-opacity=".96"/>
+                <stop offset="1" stop-color="#7b2008" stop-opacity=".95"/>
+              </linearGradient>
+              <filter id="fabricNoise"><feTurbulence type="fractalNoise" baseFrequency=".018" numOctaves="2" seed="8" result="noise"/><feBlend in="SourceGraphic" in2="noise" mode="soft-light"/></filter>
+              <clipPath id="garmentClip"><path id="garmentClipPath"></path></clipPath>
+            </defs>
+            <path id="garmentPath"></path>
+            <g id="slotLayer" clip-path="url(#garmentClip)"></g>
+          </svg>
+        </div>
+        <button class="rotate-button rotate-prev" id="rotatePrev" aria-label="Rotate left">‹</button>
+        <button class="rotate-button rotate-next" id="rotateNext" aria-label="Rotate right">›</button>
+        <div class="orientation" aria-live="polite"><span id="orientationLabel">FRONT</span><div class="orientation-track"><i id="orientationNeedle"></i></div></div>
+        <div class="model-credit">360 visual prototype from supplied fight-kit photography</div>
+      </div>
+
+      <aside class="inventory-panel">
+        <div class="inventory-heading">
+          <div><p class="eyebrow">PLACEMENT INVENTORY</p><h2 id="inventoryTitle">Fight shorts · Front</h2></div>
+          <span class="availability"><i></i> Available</span>
+        </div>
+        <div class="inventory-list" id="inventoryList"></div>
+        <div class="selection-card" id="selectionCard">
+          <div class="selection-top"><span id="selectionCode">SHORTS F-L1</span><span>AVAILABLE</span></div>
+          <h3 id="selectionName">Front left · Upper</h3>
+          <p id="selectionDescription">Prime camera-facing logo placement on the left leg.</p>
+          <label class="logo-upload">
+            <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+            <span id="uploadLabel">Upload logo preview</span>
+          </label>
+          <button class="primary-cta" id="reserveButton">Request this placement</button>
+          <p class="privacy-note">Your preview stays in this browser. Final artwork is confirmed personally.</p>
+        </div>
+      </aside>
+    </section>
+
+    <footer class="portal-footer">
+      <div><strong>MICHAEL “KING KILLER” HECKERT</strong><span>2–1 PROFESSIONAL RECORD · FOURTH BKFC FIGHT · CLEARWATER HOMECOMING</span></div>
+      <button id="embedButton">Embed portal</button>
+    </footer>
+  </main>
+
+  <dialog id="embedDialog">
+    <button class="dialog-close" id="dialogClose" aria-label="Close">×</button>
+    <p class="eyebrow">EMBED ON TEAM HECK</p>
+    <h2>Add the portal to any page.</h2>
+    <p>Once hosted, paste this responsive iframe where the sponsorship experience should appear.</p>
+    <pre><code id="embedCode">&lt;iframe src="YOUR-PORTAL-URL" title="Michael Heckert sponsorship portal" loading="lazy" allow="fullscreen" style="width:100%;height:900px;border:0"&gt;&lt;/iframe&gt;</code></pre>
+    <button class="primary-cta" id="copyEmbed">Copy embed code</button>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

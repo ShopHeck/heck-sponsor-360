@@ -41,31 +41,12 @@
 
       <div class="model-stage" id="modelStage">
         <div class="stage-glow"></div>
-        <div class="frame-wrap" id="frameWrap">
-          <img id="athleteFrame" src="assets/processed/heckert-00.webp" alt="Michael Heckert, front view in fight shorts" draggable="false">
-          <svg id="garmentOverlay" class="garment-overlay" viewBox="0 0 900 1600" aria-hidden="true">
-            <defs>
-              <linearGradient id="shirtFabric" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#242424"/>
-                <stop offset="0.45" stop-color="#080808"/>
-                <stop offset="1" stop-color="#171717"/>
-              </linearGradient>
-              <linearGradient id="shortFabric" x1="0" y1="0" x2="0.8" y2="1">
-                <stop offset="0" stop-color="#f57714" stop-opacity=".94"/>
-                <stop offset=".5" stop-color="#b93c08" stop-opacity=".96"/>
-                <stop offset="1" stop-color="#7b2008" stop-opacity=".95"/>
-              </linearGradient>
-              <filter id="fabricNoise"><feTurbulence type="fractalNoise" baseFrequency=".018" numOctaves="2" seed="8" result="noise"/><feBlend in="SourceGraphic" in2="noise" mode="soft-light"/></filter>
-              <clipPath id="garmentClip"><path id="garmentClipPath"></path></clipPath>
-            </defs>
-            <path id="garmentPath"></path>
-            <g id="slotLayer" clip-path="url(#garmentClip)"></g>
-          </svg>
-        </div>
+        <canvas id="viewer" class="viewer-canvas" aria-label="Interactive 3D model of Michael Heckert in fight apparel" role="img"></canvas>
+        <div class="viewer-loading" id="viewerLoading">Loading 3D model…</div>
         <button class="rotate-button rotate-prev" id="rotatePrev" aria-label="Rotate left">‹</button>
         <button class="rotate-button rotate-next" id="rotateNext" aria-label="Rotate right">›</button>
         <div class="orientation" aria-live="polite"><span id="orientationLabel">FRONT</span><div class="orientation-track"><i id="orientationNeedle"></i></div></div>
-        <div class="model-credit">360 visual prototype from supplied fight-kit photography</div>
+        <div class="model-credit">Real-time 3D · drag to rotate · scroll to zoom</div>
       </div>
 
       <aside class="inventory-panel">
@@ -103,6 +84,7 @@
     <button class="primary-cta" id="copyEmbed">Copy embed code</button>
   </dialog>
 
-  <script src="app.js"></script>
+  <script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.170.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.170.0/examples/jsm/"}}</script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

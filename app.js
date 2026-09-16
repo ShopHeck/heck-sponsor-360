@@ -12,10 +12,10 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 --------------------------------------------------------------------------- */
 const BODY = {
   torso: { kz: 0.64, profile: [[1.02, 0.155], [1.10, 0.160], [1.20, 0.168], [1.32, 0.190], [1.44, 0.212], [1.51, 0.222], [1.55, 0.200], [1.58, 0.130], [1.60, 0.070]] },
-  shirt: { kz: 0.70, profile: [[0.99, 0.212], [1.10, 0.200], [1.22, 0.196], [1.34, 0.208], [1.44, 0.226], [1.50, 0.238], [1.55, 0.218], [1.585, 0.080]] },
+  shirt: { kz: 0.70, profile: [[0.99, 0.212], [1.10, 0.200], [1.22, 0.196], [1.34, 0.208], [1.44, 0.226], [1.50, 0.240], [1.55, 0.236], [1.575, 0.170], [1.585, 0.080]] },
   shortsHip: { kz: 0.72, profile: [[0.875, 0.238], [0.96, 0.226], [1.03, 0.204], [1.07, 0.184], [1.085, 0.172]] },
   leg: { radius: 0.118, kz: 0.92, hipY: 0.93, hemY: 0.60, offsetX: 0.112 },
-  sleeve: { radius: 0.068, length: 0.2, shoulder: [0.25, 1.52], tilt: 0.3 }
+  sleeve: { radius: 0.078, length: 0.22, shoulder: [0.245, 1.525], tilt: 0.3 }
 };
 
 const surfaces = {
@@ -115,7 +115,7 @@ key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.near = 1; key.shadow.camera.far = 12;
 key.shadow.camera.left = key.shadow.camera.bottom = -1.6;
 key.shadow.camera.right = key.shadow.camera.top = 1.6;
-key.shadow.bias = -0.0005; key.shadow.normalBias = 0.02;
+key.shadow.bias = -0.0005; key.shadow.normalBias = 0.05;
 key.shadow.radius = 4;
 scene.add(key);
 const rim = new THREE.DirectionalLight(0xf36a16, 1.6);
@@ -200,20 +200,21 @@ function buildBody() {
   const ear = (x) => { const e = sphere(0.022, skin, [0.6, 1, 1]); e.position.set(x, 1.78, 0.0); body.add(e); }; ear(0.106); ear(-0.106);
   // shoulders (deltoids)
   [[1, "L"], [-1, "R"]].forEach(([s]) => {
-    const d = sphere(0.085, skin, [1, 0.95, 0.92]); d.position.set(s * 0.245, 1.505, 0.0); body.add(d);
+    const d = sphere(0.085, skin, [1, 0.95, 0.92]); d.position.set(s * 0.245, 1.505, 0.0); d.name = "deltoid"; body.add(d);
     // upper arm, forearm, hand
     const sh = [s * 0.255, 1.49, 0.0], el = [s * 0.315, 1.215, 0.02], wr = [s * 0.35, 0.975, 0.11];
     body.add(limb(sh, el, 0.066, 0.056, skin));
     const elbow = sphere(0.058, skin); elbow.position.set(...el); body.add(elbow);
     body.add(limb(el, wr, 0.06, 0.045, skin));
-    const wrap = limb([s * 0.343, 1.03, 0.09], wr, 0.052, 0.05, wrapMat); body.add(wrap);
-    const hand = sphere(0.05, wrapMat, [0.9, 1.15, 0.75]); hand.position.set(wr[0] + s * 0.005, wr[1] - 0.075, wr[2] + 0.01); body.add(hand);
+    const wrap = limb([s * 0.343, 1.03, 0.09], wr, 0.056, 0.054, wrapMat); body.add(wrap);
+    const hand = sphere(0.05, wrapMat, [0.9, 1.15, 0.75]); hand.position.set(wr[0] + s * 0.005, wr[1] - 0.05, wr[2] + 0.01); body.add(hand);
     // pelvis + legs (skin visible below shorts hem)
     const hip = [s * 0.11, 0.98, 0], kn = [s * 0.115, 0.50, 0.01], an = [s * 0.115, 0.09, -0.01];
     body.add(limb(hip, kn, 0.112, 0.078, skin));
     const knee = sphere(0.078, skin); knee.position.set(...kn); body.add(knee);
     body.add(limb(kn, an, 0.078, 0.052, skin));
-    const sock = limb([s * 0.115, 0.30, -0.005], an, 0.06, 0.055, wrapMat); body.add(sock);
+    const sock = limb([s * 0.115, 0.30, -0.005], an, 0.07, 0.062, wrapMat); body.add(sock);
+    const cuff = new THREE.Mesh(new THREE.TorusGeometry(0.066, 0.008, 10, 40), wrapMat); cuff.rotation.x = Math.PI / 2; cuff.position.set(s * 0.115, 0.30, -0.005); body.add(cuff);
     const shoe = new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.16, 6, 20), shoeMat);
     shoe.rotation.x = Math.PI / 2; shoe.position.set(s * 0.12, 0.055, 0.05); shoe.scale.set(1.15, 1, 1); shoe.castShadow = true; body.add(shoe);
   });
@@ -248,10 +249,10 @@ function buildShirt() {
     const sl = new THREE.Group();
     sl.position.set(s * BODY.sleeve.shoulder[0], BODY.sleeve.shoulder[1], 0);
     sl.rotation.z = s * BODY.sleeve.tilt;
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(BODY.sleeve.radius * 0.93, BODY.sleeve.radius * 1.12, BODY.sleeve.length, 40, 1, true), blackFabric.clone());
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(BODY.sleeve.radius * 0.98, BODY.sleeve.radius * 1.25, BODY.sleeve.length, 40, 1, true), blackFabric.clone());
     tube.material.side = THREE.DoubleSide; tube.position.y = -BODY.sleeve.length / 2; tube.castShadow = tube.receiveShadow = true; sl.add(tube);
-    const capG = new THREE.SphereGeometry(BODY.sleeve.radius * 1.12, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    const cap = new THREE.Mesh(capG, blackFabric); cap.castShadow = true; sl.add(cap);
+    const capG = new THREE.SphereGeometry(BODY.sleeve.radius * 1.25, 32, 24);
+    const cap = new THREE.Mesh(capG, blackFabric); cap.scale.set(1, 0.8, 1); cap.position.y = -0.01; cap.castShadow = true; sl.add(cap);
     nodes[name] = sl; g.add(sl);
   });
   return g;
@@ -405,6 +406,7 @@ function renderSelection() {
 function renderSlots() { slotMeshes.forEach(drawSlot); }
 function renderGarments() {
   shirt.visible = state.garment === "shirt";
+  body.traverse((o) => { if (o.name === "deltoid") o.visible = !shirt.visible; });
   slotMeshes.forEach((s) => { s.mesh.visible = (state.garment === "shirt") === s.spot.id.startsWith("T"); });
 }
 function renderOrientation() {

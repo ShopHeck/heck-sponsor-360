@@ -315,6 +315,7 @@ function renderInventory() {
   const items = visiblePlacements();
   inventoryList.replaceChildren();
   if (!items.length) {
+    availabilityEl.innerHTML = ""; availabilityEl.classList.remove("is-full");
     const empty = document.createElement("p"); empty.className = "intro-copy"; empty.textContent = "Rotate to the front or back to select a placement."; inventoryList.append(empty); return;
   }
   const open = items.filter((s) => !isSold(s.id)).length;

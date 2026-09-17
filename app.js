@@ -376,6 +376,7 @@ canvas.addEventListener("pointermove", (e) => { canvas.style.cursor = pickSlot(e
 /* ------------------------------------------------------- logo upload */
 document.getElementById("logoInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
+  event.target.value = "";
   if (!file) return;
   if (file.size > 5 * 1024 * 1024) { alert("Please choose a logo under 5 MB."); return; }
   const old = state.logos[state.selected];

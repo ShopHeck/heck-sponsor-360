@@ -156,7 +156,7 @@ function drawSlot(slot) {
   g.clearRect(0, 0, c.width, c.height);
   const soldImg = state.soldImages[spot.id];
   if (soldImg) {
-    const pad = 14, bw = c.width - pad * 2, bh = c.height - pad * 2;
+    const pad = 6, bw = c.width - pad * 2, bh = c.height - pad * 2;
     const k = Math.min(bw / soldImg.width, bh / soldImg.height);
     g.drawImage(soldImg, (c.width - soldImg.width * k) / 2, (c.height - soldImg.height * k) / 2, soldImg.width * k, soldImg.height * k);
     if (selected) { g.lineWidth = 8; g.strokeStyle = "rgba(255,255,255,0.85)"; roundRect(g, 5, 5, c.width - 10, c.height - 10, 16); g.stroke(); }

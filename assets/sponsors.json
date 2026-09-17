@@ -1,7 +1,7 @@
 {
   "SF-L1": { "sponsor": "Boxrope", "logo": "assets/sponsors/boxrope.png" },
   "SF-L2": { "sponsor": "LJC Construction", "logo": "assets/sponsors/ljc-construction.png" },
-  "SF-R1": { "sponsor": "BluefitMD", "logo": "assets/sponsors/bluefitmd.png" },
-  "SF-R2": { "sponsor": "Nitro", "logo": "assets/sponsors/nitro.png" },
-  "SF-R3": { "sponsor": "Sammy Sharks", "logo": "assets/sponsors/sammy-sharks.png" }
+  "SF-L3": { "sponsor": "Nitro", "logo": "assets/sponsors/nitro.png" },
+  "SF-R2": { "sponsor": "Sammy Sharks", "logo": "assets/sponsors/sammy-sharks.png" },
+  "SF-R3": { "sponsor": "BluefitMD", "logo": "assets/sponsors/bluefitmd.png" }
 }

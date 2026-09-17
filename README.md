@@ -35,11 +35,11 @@ Once hosted, paste this where the portal should appear (the "Embed portal" butto
 
 ## 3D viewer
 
-The stage is a real-time three.js (WebGL) scene loaded from the unpkg import map in `index.html`. The athlete is a procedural athletic body; the fight shorts and black T-shirt are modeled garments, and every placement is a curved decal patch on the garment surface (clickable, raycast-selected, and textured with the uploaded logo). The body geometry, garment profiles and placement coordinates live at the top of `app.js`.
+The stage is a real-time three.js (WebGL) scene loaded from the unpkg import map in `index.html`. The athlete is `assets/models/heckert.glb`, a textured full-body mesh of Michael generated with Meshy (multi-image-to-3D) from his reference photos, already dressed in the plain black T-shirt and orange fight shorts, then Draco/WebP-compressed with `@gltf-transform/cli`. Every placement is a `DecalGeometry` patch projected onto the mesh surface (clickable, raycast-selected, and textured with the uploaded logo). Placement coordinates live at the top of `app.js`.
 
-### Using a scanned likeness
+### Swapping the model
 
-The procedural body is a stand-in until a scan of Michael exists. Export a GLB from a photogrammetry app (Polycam / Luma AI, person mode, T-pose or relaxed stance) to `assets/models/heckert.glb` and load the portal with `?model=assets/models/heckert.glb` (or change the default in `app.js`). The GLB is scaled to 1.86 m and centred on the floor; the modeled garments and placements render on top of it, so the placement inventory does not change.
+The Meshy mesh is an AI approximation, not a scan. To replace it with a photogrammetry capture (Polycam / Luma AI) or an artist-made GLB, drop the file in `assets/models/` and load the portal with `?model=assets/models/<file>.glb` (or change `DEFAULT_MODEL` in `app.js`). The GLB is scaled to 1.86 m, centred on the floor and auto-flipped to face +Z; placements are re-projected onto whatever surface the rays hit, so a model in the same relaxed stance keeps the inventory intact (adjust the `x`/`y` coordinates in `app.js` if the pose differs).
 
 ## Reference photography
 

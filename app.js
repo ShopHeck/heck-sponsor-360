@@ -58,7 +58,9 @@ const placements = {
 };
 const allPlacements = [...placements.shorts.front, ...placements.shorts.back, ...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves];
 
-const state = { garment: "shorts", selected: "SF-L1", logos: {}, logoImages: {}, azimuth: 0 };
+const state = { garment: "shorts", selected: "SF-L1", logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0 };
+const SPONSORS_URL = "assets/sponsors.json";
+const isSold = (id) => Boolean(state.sold[id]);
 
 /* ------------------------------------------------------------------ DOM */
 const stage = document.getElementById("modelStage");
@@ -69,6 +71,9 @@ const inventoryTitle = document.getElementById("inventoryTitle");
 const selectionCode = document.getElementById("selectionCode");
 const selectionName = document.getElementById("selectionName");
 const selectionDescription = document.getElementById("selectionDescription");
+const selectionStatus = document.getElementById("selectionStatus");
+const selectionCard = document.getElementById("selectionCard");
+const availabilityEl = document.getElementById("availability");
 const uploadLabel = document.getElementById("uploadLabel");
 const orientationLabel = document.getElementById("orientationLabel");
 const orientationNeedle = document.getElementById("orientationNeedle");
@@ -149,6 +154,15 @@ function drawSlot(slot) {
   const g = c.getContext("2d");
   const selected = spot.id === state.selected;
   g.clearRect(0, 0, c.width, c.height);
+  const soldImg = state.soldImages[spot.id];
+  if (soldImg) {
+    const pad = 14, bw = c.width - pad * 2, bh = c.height - pad * 2;
+    const k = Math.min(bw / soldImg.width, bh / soldImg.height);
+    g.drawImage(soldImg, (c.width - soldImg.width * k) / 2, (c.height - soldImg.height * k) / 2, soldImg.width * k, soldImg.height * k);
+    if (selected) { g.lineWidth = 8; g.strokeStyle = "rgba(255,255,255,0.85)"; roundRect(g, 5, 5, c.width - 10, c.height - 10, 16); g.stroke(); }
+    tex.needsUpdate = true;
+    return;
+  }
   const img = state.logoImages[spot.id];
   if (img) {
     g.fillStyle = "rgba(255,255,255,0.96)";
@@ -234,6 +248,23 @@ function normalise(root) {
   root.updateMatrixWorld(true);
 }
 
+/* ------------------------------------------------------ sold sponsors */
+// assets/sponsors.json: { "SF-L1": { "sponsor": "Name", "logo": "assets/sponsors/name.png" }, ... }
+function loadImage(src) {
+  return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
+}
+const sponsorsReady = fetch(SPONSORS_URL)
+  .then((r) => (r.ok ? r.json() : {}))
+  .then((data) => Promise.all(Object.entries(data).map(async ([id, entry]) => {
+    if (!allPlacements.some((p) => p.id === id)) { console.warn("Unknown placement in sponsors.json", id); return; }
+    state.sold[id] = entry;
+    if (entry.logo) {
+      try { state.soldImages[id] = await loadImage(entry.logo); }
+      catch { console.warn("Sponsor logo failed to load", id, entry.logo); }
+    }
+  })))
+  .catch((err) => console.warn("sponsors.json unavailable", err));
+
 const modelUrl = new URLSearchParams(location.search).get("model") || DEFAULT_MODEL;
 const draco = new DRACOLoader().setDecoderPath(`${THREE_CDN}libs/draco/`);
 const loader = new GLTFLoader().setDRACOLoader(draco);
@@ -255,8 +286,7 @@ loader.load(
     normalise(root);
     if (!facesPositiveZ(meshes)) { root.rotateY(Math.PI); normalise(root); }
     buildSlots(meshes);
-    renderAll();
-    stage.classList.add("is-ready");
+    sponsorsReady.then(() => { state.selected = firstOpen(placements.shorts.front); renderAll(); stage.classList.add("is-ready"); });
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
   (err) => { console.error(err); loadingEl.textContent = "The 3D model could not be loaded."; }
@@ -287,19 +317,26 @@ function renderInventory() {
   if (!items.length) {
     const empty = document.createElement("p"); empty.className = "intro-copy"; empty.textContent = "Rotate to the front or back to select a placement."; inventoryList.append(empty); return;
   }
+  const open = items.filter((s) => !isSold(s.id)).length;
+  availabilityEl.innerHTML = `<i></i> ${open} of ${items.length} available`;
+  availabilityEl.classList.toggle("is-full", open === 0);
   items.forEach((spot, index) => {
+    const sold = state.sold[spot.id];
     const button = document.createElement("button");
-    button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}`;
-    button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${spot.name}</strong><small>${spot.id}</small></span><span class="status">OPEN</span>`;
+    button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}${sold ? " is-sold" : ""}`;
+    button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${sold ? sold.sponsor : spot.name}</strong><small>${spot.id}${sold ? " · " + spot.name : ""}</small></span><span class="status">${sold ? "SOLD" : "OPEN"}</span>`;
     button.addEventListener("click", () => selectPlacement(spot.id, true));
     inventoryList.append(button);
   });
 }
 function renderSelection() {
   const spot = findPlacement();
+  const sold = state.sold[spot.id];
   selectionCode.textContent = spot.id;
-  selectionName.textContent = spot.name;
-  selectionDescription.textContent = spot.detail;
+  selectionStatus.textContent = sold ? "SOLD" : "AVAILABLE";
+  selectionCard.classList.toggle("is-sold", Boolean(sold));
+  selectionName.textContent = sold ? sold.sponsor : spot.name;
+  selectionDescription.textContent = sold ? `${spot.name}. This placement is confirmed for ${sold.sponsor}.` : spot.detail;
   uploadLabel.textContent = state.logos[spot.id] ? "Replace logo preview" : "Upload logo preview";
 }
 function renderSlots() { slotMeshes.forEach(drawSlot); }
@@ -324,9 +361,10 @@ function selectPlacement(id, focus = false) {
     if (Math.abs(delta) > 0.6) rotateTo(cur + delta);
   }
 }
+function firstOpen(list) { return (list.find((p) => !isSold(p.id)) || list[0]).id; }
 function setGarment(garment) {
   state.garment = garment;
-  state.selected = garment === "shirt" ? "TF-01" : "SF-L1";
+  state.selected = firstOpen(garment === "shirt" ? placements.shirt.front : placements.shorts.front);
   document.querySelectorAll(".garment-tab").forEach((b) => { const on = b.dataset.garment === garment; b.classList.toggle("is-active", on); b.setAttribute("aria-selected", String(on)); });
   if (currentSide() !== "front" && currentSide() !== "back") rotateTo(0);
   renderAll();
@@ -377,7 +415,7 @@ canvas.addEventListener("pointermove", (e) => { canvas.style.cursor = pickSlot(e
 document.getElementById("logoInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
   event.target.value = "";
-  if (!file) return;
+  if (!file || isSold(state.selected)) return;
   if (file.size > 5 * 1024 * 1024) { alert("Please choose a logo under 5 MB."); return; }
   const old = state.logos[state.selected];
   if (old) URL.revokeObjectURL(old);
@@ -389,6 +427,7 @@ document.getElementById("logoInput").addEventListener("change", (event) => {
 });
 document.getElementById("reserveButton").addEventListener("click", () => {
   const spot = findPlacement();
+  if (isSold(spot.id)) return;
   const subject = encodeURIComponent(`BKFC Clearwater sponsorship inquiry: ${spot.id}`);
   const bodyText = encodeURIComponent(`I am interested in ${spot.name} (${spot.id}) in the interactive sponsorship portal.`);
   window.open(`mailto:michaelheckert@heckholdings.com?subject=${subject}&body=${bodyText}`, "_blank");

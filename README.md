@@ -44,3 +44,16 @@ The Meshy mesh is an AI approximation, not a scan. To replace it with a photogra
 ## Reference photography
 
 `process_assets.py` converts the supplied 12-angle photography (`IMG_1267–IMG_1278`) into the WebP frames in `assets/processed/`. They are reference material for the model's build and shorts design and are not used by the viewer.
+
+## Sold placements (confirmed sponsors)
+
+Confirmed sponsors are listed in `assets/sponsors.json`, keyed by placement ID. Each entry names the sponsor and points to a logo file (transparent PNG or SVG, roughly the aspect ratio of the placement) stored in `assets/sponsors/`:
+
+```json
+{
+  "SF-R1": { "sponsor": "HKA USA", "logo": "assets/sponsors/hka-usa.png" },
+  "TS-01": { "sponsor": "UFC Gym", "logo": "assets/sponsors/ufc-gym.png" }
+}
+```
+
+Sold placements render the sponsor's logo directly on the garment, show `SOLD` in the inventory and selection card, and cannot be previewed or requested. Sleeve IDs (`TS-0x`) mark both sleeves. Delete an entry to reopen the placement.

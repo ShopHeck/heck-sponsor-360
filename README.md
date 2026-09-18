@@ -30,7 +30,7 @@ Any static host works (Netlify drag-and-drop, GitHub Pages, Vercel). Publish the
 Once hosted, paste this where the portal should appear (the "Embed portal" button in the app generates the same snippet):
 
 ```html
-<iframe src="https://YOUR-PORTAL-URL" title="Michael Heckert sponsorship portal" loading="lazy" allow="fullscreen" style="width:100%;height:900px;border:0"></iframe>
+<iframe src="https://heck-sponsor-360.netlify.app/" title="Michael Heckert sponsorship portal" loading="lazy" allow="fullscreen" style="width:100%;height:900px;border:0"></iframe>
 ```
 
 ## 3D viewer

@@ -33,6 +33,27 @@ Once hosted, paste this where the portal should appear (the "Embed portal" butto
 <iframe src="https://YOUR-PORTAL-URL" title="Michael Heckert sponsorship portal" loading="lazy" allow="fullscreen" style="width:100%;height:900px;border:0"></iframe>
 ```
 
-## Assets
+## 3D viewer
 
-`process_assets.py` converts the supplied 12-angle photography (`IMG_1267–IMG_1278`) into the optimized WebP frames in `assets/processed/`. Existing shorts branding is covered by the garment overlay and placement slots; the visual layer is a photo rotator, not a WebGL mesh. Replacing it with a true 3D likeness requires a photogrammetry capture or an authored GLB.
+The stage is a real-time three.js (WebGL) scene loaded from the unpkg import map in `index.html`. The athlete is `assets/models/heckert.glb`, a textured full-body mesh of Michael generated with Meshy (multi-image-to-3D) from his reference photos, already dressed in the plain black T-shirt and orange fight shorts, then Draco/WebP-compressed with `@gltf-transform/cli`. Every placement is a `DecalGeometry` patch projected onto the mesh surface (clickable, raycast-selected, and textured with the uploaded logo). Placement coordinates live at the top of `app.js`.
+
+### Swapping the model
+
+The Meshy mesh is an AI approximation, not a scan. To replace it with a photogrammetry capture (Polycam / Luma AI) or an artist-made GLB, drop the file in `assets/models/` and load the portal with `?model=assets/models/<file>.glb` (or change `DEFAULT_MODEL` in `app.js`). The GLB is scaled to 1.86 m, centred on the floor and auto-flipped to face +Z; placements are re-projected onto whatever surface the rays hit, so a model in the same relaxed stance keeps the inventory intact (adjust the `x`/`y` coordinates in `app.js` if the pose differs).
+
+## Reference photography
+
+`process_assets.py` converts the supplied 12-angle photography (`IMG_1267–IMG_1278`) into the WebP frames in `assets/processed/`. They are reference material for the model's build and shorts design and are not used by the viewer.
+
+## Sold placements (confirmed sponsors)
+
+Confirmed sponsors are listed in `assets/sponsors.json`, keyed by placement ID. Each entry names the sponsor and points to a logo file (transparent PNG or SVG, roughly the aspect ratio of the placement) stored in `assets/sponsors/`:
+
+```json
+{
+  "SF-R1": { "sponsor": "HKA USA", "logo": "assets/sponsors/hka-usa.png" },
+  "TS-01": { "sponsor": "UFC Gym", "logo": "assets/sponsors/ufc-gym.png" }
+}
+```
+
+Sold placements render the sponsor's logo directly on the garment, show `SOLD` in the inventory and selection card, and cannot be previewed or requested. Sleeve IDs (`TS-0x`) mark both sleeves. Delete an entry to reopen the placement.

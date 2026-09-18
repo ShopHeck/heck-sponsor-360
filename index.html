@@ -41,8 +41,8 @@
 
       <div class="model-stage" id="modelStage">
         <div class="stage-glow"></div>
-        <canvas id="viewer" class="viewer-canvas" aria-label="Interactive 3D model of Michael Heckert in fight apparel" role="img"></canvas>
-        <div class="viewer-loading" id="viewerLoading">Loading 3D model…</div>
+        <canvas id="viewer" class="viewer-canvas" tabindex="0" aria-label="Interactive 3D model of Michael Heckert in fight apparel. Use the arrow keys to rotate." role="img"></canvas>
+        <div class="viewer-loading" id="viewerLoading" aria-live="polite"><span class="spinner"></span><span id="loadingText">Loading 3D model…</span></div>
         <button class="rotate-button rotate-prev" id="rotatePrev" aria-label="Rotate left">‹</button>
         <button class="rotate-button rotate-next" id="rotateNext" aria-label="Rotate right">›</button>
         <div class="orientation" aria-live="polite"><span id="orientationLabel">FRONT</span><div class="orientation-track"><i id="orientationNeedle"></i></div></div>
@@ -59,6 +59,12 @@
           <div class="selection-top"><span id="selectionCode">SF-L1</span><span id="selectionStatus">AVAILABLE</span></div>
           <h3 id="selectionName">Front left · Upper</h3>
           <p id="selectionDescription">Prime camera-facing logo placement on the left leg.</p>
+          <img class="sponsor-logo" id="sponsorLogo" alt="" hidden>
+          <button class="secondary-cta" id="openPlacements" hidden>See open placements</button>
+          <div class="preview-thumb" id="previewThumb" hidden>
+            <img id="previewImg" alt="Your uploaded logo preview">
+            <button type="button" id="removePreview">Remove preview</button>
+          </div>
           <label class="logo-upload">
             <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
             <span id="uploadLabel">Upload logo preview</span>
@@ -74,6 +80,8 @@
       <button id="embedButton">Embed portal</button>
     </footer>
   </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <dialog id="embedDialog">
     <button class="dialog-close" id="dialogClose" aria-label="Close">×</button>

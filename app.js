@@ -58,14 +58,15 @@ const placements = {
 };
 const allPlacements = [...placements.shorts.front, ...placements.shorts.back, ...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves];
 
-const state = { garment: "shorts", selected: "SF-L1", logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0 };
+const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0 };
+const CONTACT_EMAIL = "michaelheckert@heckholdings.com";
 const SPONSORS_URL = "assets/sponsors.json";
 const isSold = (id) => Boolean(state.sold[id]);
 
 /* ------------------------------------------------------------------ DOM */
 const stage = document.getElementById("modelStage");
 const canvas = document.getElementById("viewer");
-const loadingEl = document.getElementById("viewerLoading");
+const loadingEl = document.getElementById("loadingText");
 const inventoryList = document.getElementById("inventoryList");
 const inventoryTitle = document.getElementById("inventoryTitle");
 const selectionCode = document.getElementById("selectionCode");
@@ -75,6 +76,19 @@ const selectionStatus = document.getElementById("selectionStatus");
 const selectionCard = document.getElementById("selectionCard");
 const availabilityEl = document.getElementById("availability");
 const uploadLabel = document.getElementById("uploadLabel");
+const previewThumb = document.getElementById("previewThumb");
+const previewImg = document.getElementById("previewImg");
+const removePreview = document.getElementById("removePreview");
+const sponsorLogoEl = document.getElementById("sponsorLogo");
+const openPlacementsBtn = document.getElementById("openPlacements");
+const toastEl = document.getElementById("toast");
+let toastTimer = null;
+function toast(message) {
+  toastEl.textContent = message;
+  toastEl.classList.add("is-visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove("is-visible"), 3200);
+}
 const orientationLabel = document.getElementById("orientationLabel");
 const orientationNeedle = document.getElementById("orientationNeedle");
 
@@ -153,13 +167,14 @@ function drawSlot(slot) {
   const { spot, canvas: c, tex } = slot;
   const g = c.getContext("2d");
   const selected = spot.id === state.selected;
+  const hovered = spot.id === state.hovered && !selected;
   g.clearRect(0, 0, c.width, c.height);
   const soldImg = state.soldImages[spot.id];
   if (soldImg) {
     const pad = 6, bw = c.width - pad * 2, bh = c.height - pad * 2;
     const k = Math.min(bw / soldImg.width, bh / soldImg.height);
     g.drawImage(soldImg, (c.width - soldImg.width * k) / 2, (c.height - soldImg.height * k) / 2, soldImg.width * k, soldImg.height * k);
-    if (selected) { g.lineWidth = 8; g.strokeStyle = "rgba(255,255,255,0.85)"; roundRect(g, 5, 5, c.width - 10, c.height - 10, 16); g.stroke(); }
+    if (selected || hovered) { g.lineWidth = 8; g.strokeStyle = selected ? "rgba(255,255,255,0.85)" : "rgba(255,255,255,0.4)"; roundRect(g, 5, 5, c.width - 10, c.height - 10, 16); g.stroke(); }
     tex.needsUpdate = true;
     return;
   }
@@ -171,7 +186,7 @@ function drawSlot(slot) {
     const k = Math.min(bw / img.width, bh / img.height);
     g.drawImage(img, (c.width - img.width * k) / 2, (c.height - img.height * k) / 2, img.width * k, img.height * k);
   } else {
-    g.fillStyle = selected ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.14)";
+    g.fillStyle = selected ? "rgba(255,255,255,0.92)" : hovered ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.14)";
     roundRect(g, 8, 8, c.width - 16, c.height - 16, 14); g.fill();
     g.setLineDash([16, 10]); g.lineWidth = 6;
     g.strokeStyle = selected ? "#f36a16" : "rgba(255,255,255,0.9)";
@@ -289,7 +304,12 @@ loader.load(
     sponsorsReady.then(() => { state.selected = firstOpen(placements.shorts.front); renderAll(); stage.classList.add("is-ready"); });
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
-  (err) => { console.error(err); loadingEl.textContent = "The 3D model could not be loaded."; }
+  (err) => {
+    console.error(err);
+    stage.classList.add("has-error");
+    loadingEl.textContent = "The 3D model could not be loaded. Please refresh the page.";
+    sponsorsReady.then(() => { state.selected = firstOpen(placements.shorts.front); renderAll(); });
+  }
 );
 
 /* ----------------------------------------------------------- UI logic */
@@ -312,11 +332,12 @@ function renderInventory() {
   const side = currentSide();
   const label = side === "front" ? "Front" : side === "back" ? "Back" : state.garment === "shirt" ? "Sleeves" : "Side";
   inventoryTitle.textContent = `${state.garment === "shirt" ? "Black T-shirt" : "Fight shorts"} · ${label}`;
+  document.querySelectorAll("[data-view]").forEach((b) => b.classList.toggle("is-active", b.dataset.view === side));
   const items = visiblePlacements();
   inventoryList.replaceChildren();
   if (!items.length) {
     availabilityEl.innerHTML = ""; availabilityEl.classList.remove("is-full");
-    const empty = document.createElement("p"); empty.className = "intro-copy"; empty.textContent = "Rotate to the front or back to select a placement."; inventoryList.append(empty); return;
+    const empty = document.createElement("p"); empty.className = "inventory-empty"; empty.textContent = "Rotate to the front or back to see the placements on this garment."; inventoryList.append(empty); return;
   }
   const open = items.filter((s) => !isSold(s.id)).length;
   availabilityEl.innerHTML = `<i></i> ${open} of ${items.length} available`;
@@ -326,9 +347,26 @@ function renderInventory() {
     const button = document.createElement("button");
     button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}${sold ? " is-sold" : ""}`;
     button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${sold ? sold.sponsor : spot.name}</strong><small>${spot.id}${sold ? " · " + spot.name : ""}</small></span><span class="status">${sold ? "SOLD" : "OPEN"}</span>`;
+    button.setAttribute("aria-pressed", String(spot.id === state.selected));
     button.addEventListener("click", () => selectPlacement(spot.id, true));
     inventoryList.append(button);
   });
+}
+function scrollSelectedIntoView() {
+  const el = inventoryList.querySelector(".inventory-item.is-selected");
+  if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+const luminanceCache = new WeakMap();
+function isDarkArtwork(img) {
+  if (luminanceCache.has(img)) return luminanceCache.get(img);
+  const c = document.createElement("canvas"); c.width = c.height = 32;
+  const g = c.getContext("2d"); g.drawImage(img, 0, 0, 32, 32);
+  const d = g.getImageData(0, 0, 32, 32).data;
+  let sum = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) { if (d[i + 3] > 40) { sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; n++; } }
+  const dark = n > 0 && sum / n < 90;
+  luminanceCache.set(img, dark);
+  return dark;
 }
 function renderSelection() {
   const spot = findPlacement();
@@ -339,6 +377,17 @@ function renderSelection() {
   selectionName.textContent = sold ? sold.sponsor : spot.name;
   selectionDescription.textContent = sold ? `${spot.name}. This placement is confirmed for ${sold.sponsor}.` : spot.detail;
   uploadLabel.textContent = state.logos[spot.id] ? "Replace logo preview" : "Upload logo preview";
+  const preview = state.logos[spot.id];
+  previewThumb.hidden = !preview || Boolean(sold);
+  if (preview) previewImg.src = preview;
+  sponsorLogoEl.hidden = !sold || !state.soldImages[spot.id];
+  if (sold && state.soldImages[spot.id]) {
+    sponsorLogoEl.src = sold.logo;
+    sponsorLogoEl.alt = `${sold.sponsor} logo`;
+    sponsorLogoEl.classList.toggle("is-dark-art", isDarkArtwork(state.soldImages[spot.id]));
+  }
+  const anyOpen = allPlacements.some((p) => !isSold(p.id));
+  openPlacementsBtn.hidden = !sold || !anyOpen;
 }
 function renderSlots() { slotMeshes.forEach(drawSlot); }
 function renderGarments() {
@@ -355,6 +404,7 @@ function renderAll() { renderGarments(); renderSlots(); renderInventory(); rende
 function selectPlacement(id, focus = false) {
   state.selected = id;
   renderSlots(); renderInventory(); renderSelection();
+  if (!focus) scrollSelectedIntoView();
   if (focus) {
     const spot = findPlacement();
     const cur = state.azimuth;
@@ -410,38 +460,85 @@ canvas.addEventListener("pointerup", (e) => {
   const hit = pickSlot(e);
   if (hit) selectPlacement(hit.object.userData.spotId);
 });
-canvas.addEventListener("pointermove", (e) => { canvas.style.cursor = pickSlot(e) ? "pointer" : "grab"; });
+function setHovered(id) {
+  if (id === state.hovered) return;
+  const prev = state.hovered;
+  state.hovered = id;
+  slotMeshes.forEach((s) => { if (s.spot.id === prev || s.spot.id === id) drawSlot(s); });
+}
+canvas.addEventListener("pointermove", (e) => {
+  if (downAt) { setHovered(null); return; }
+  const hit = pickSlot(e);
+  canvas.style.cursor = hit ? "pointer" : "grab";
+  setHovered(hit ? hit.object.userData.spotId : null);
+});
+canvas.addEventListener("pointerleave", () => setHovered(null));
+canvas.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowLeft") { e.preventDefault(); rotateTo(controls.getAzimuthalAngle() - Math.PI / 4); }
+  if (e.key === "ArrowRight") { e.preventDefault(); rotateTo(controls.getAzimuthalAngle() + Math.PI / 4); }
+});
 
 /* ------------------------------------------------------- logo upload */
 document.getElementById("logoInput").addEventListener("change", (event) => {
   const file = event.target.files[0];
   event.target.value = "";
   if (!file || isSold(state.selected)) return;
-  if (file.size > 5 * 1024 * 1024) { alert("Please choose a logo under 5 MB."); return; }
-  const old = state.logos[state.selected];
+  if (!file.type.startsWith("image/")) { toast("Please choose a PNG, JPG, WebP or SVG image."); return; }
+  if (file.size > 5 * 1024 * 1024) { toast("Please choose a logo under 5 MB."); return; }
+  const id = state.selected;
+  const old = state.logos[id];
   if (old) URL.revokeObjectURL(old);
   const url = URL.createObjectURL(file);
-  state.logos[state.selected] = url;
+  state.logos[id] = url;
   const img = new Image();
-  img.onload = () => { state.logoImages[state.selected] = img; renderSlots(); renderSelection(); };
+  img.onload = () => { state.logoImages[id] = img; renderSlots(); renderSelection(); };
+  img.onerror = () => { delete state.logos[id]; URL.revokeObjectURL(url); toast("That file could not be read as an image."); renderSelection(); };
   img.src = url;
+});
+removePreview.addEventListener("click", () => {
+  const id = state.selected;
+  if (state.logos[id]) URL.revokeObjectURL(state.logos[id]);
+  delete state.logos[id]; delete state.logoImages[id];
+  renderSlots(); renderSelection();
+});
+openPlacementsBtn.addEventListener("click", () => {
+  const visible = visiblePlacements().find((p) => !isSold(p.id));
+  const garmentList = state.garment === "shirt" ? [...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves] : [...placements.shorts.front, ...placements.shorts.back];
+  const next = visible || garmentList.find((p) => !isSold(p.id)) || allPlacements.find((p) => !isSold(p.id));
+  if (!next) return;
+  if (next.id.startsWith("T") !== (state.garment === "shirt")) setGarment(next.id.startsWith("T") ? "shirt" : "shorts");
+  selectPlacement(next.id, true);
 });
 document.getElementById("reserveButton").addEventListener("click", () => {
   const spot = findPlacement();
   if (isSold(spot.id)) return;
+  const garment = spot.id.startsWith("T") ? "black T-shirt" : "fight shorts";
   const subject = encodeURIComponent(`BKFC Clearwater sponsorship inquiry: ${spot.id}`);
-  const bodyText = encodeURIComponent(`I am interested in ${spot.name} (${spot.id}) in the interactive sponsorship portal.`);
-  window.open(`mailto:michaelheckert@heckholdings.com?subject=${subject}&body=${bodyText}`, "_blank");
+  const bodyText = encodeURIComponent(`Hi Michael,\n\nI am interested in the ${spot.name} placement (${spot.id}) on the ${garment} for BKFC Clearwater.\n\nCompany:\nName:\nPhone:\n`);
+  location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${bodyText}`;
+  toast(`Opening your email app… or write to ${CONTACT_EMAIL}`);
 });
 
 /* -------------------------------------------------------------- embed */
 const embedDialog = document.getElementById("embedDialog");
 document.getElementById("embedButton").addEventListener("click", () => embedDialog.showModal());
 document.getElementById("dialogClose").addEventListener("click", () => embedDialog.close());
-document.getElementById("copyEmbed").addEventListener("click", async () => {
-  await navigator.clipboard.writeText(document.getElementById("embedCode").textContent);
-  document.getElementById("copyEmbed").textContent = "Copied";
-  setTimeout(() => { document.getElementById("copyEmbed").textContent = "Copy embed code"; }, 1600);
+embedDialog.addEventListener("click", (e) => { if (e.target === embedDialog) embedDialog.close(); });
+const embedCodeEl = document.getElementById("embedCode");
+if (location.protocol.startsWith("http") && !/^(localhost|127\.)/.test(location.hostname)) {
+  embedCodeEl.textContent = embedCodeEl.textContent.replace("YOUR-PORTAL-URL", `${location.origin}${location.pathname}`);
+}
+const copyButton = document.getElementById("copyEmbed");
+copyButton.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(embedCodeEl.textContent);
+    copyButton.textContent = "Copied";
+  } catch {
+    const range = document.createRange(); range.selectNodeContents(embedCodeEl);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    copyButton.textContent = "Press Ctrl+C to copy";
+  }
+  setTimeout(() => { copyButton.textContent = "Copy embed code"; }, 1800);
 });
 
 /* --------------------------------------------------------------- loop */
@@ -472,7 +569,7 @@ function animate() {
   if (side !== lastSide) {
     lastSide = side;
     const visible = visiblePlacements();
-    if (visible.length && !visible.some((p) => p.id === state.selected)) { state.selected = visible[0].id; renderSlots(); renderSelection(); }
+    if (visible.length && !visible.some((p) => p.id === state.selected)) { state.selected = firstOpen(visible); renderSlots(); renderSelection(); }
     renderInventory();
   }
   renderOrientation();

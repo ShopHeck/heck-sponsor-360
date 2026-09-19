@@ -296,7 +296,7 @@ function normalise(root) {
 function loadImage(src) {
   return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
 }
-const sponsorsReady = fetch(SPONSORS_URL)
+const sponsorsReady = fetch(SPONSORS_URL, { cache: "no-store" })
   .then((r) => (r.ok ? r.json() : {}))
   .then((data) => Promise.all(Object.entries(data).map(async ([id, entry]) => {
     if (!allPlacements.some((p) => p.id === id)) { console.warn("Unknown placement in sponsors.json", id); return; }
@@ -707,7 +707,9 @@ copyButton.addEventListener("click", async () => {
 if (isEmbedded) {
   let lastHeight = 0;
   const postHeight = () => {
-    const height = Math.ceil(document.documentElement.scrollHeight);
+    // Measure the body, not documentElement.scrollHeight: the latter is never smaller than the
+    // iframe viewport, so the host frame could grow but never shrink back to the content.
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
     if (height === lastHeight) return;
     lastHeight = height;
     window.parent.postMessage({ type: "heck-portal-height", height }, "*");

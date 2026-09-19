@@ -350,7 +350,7 @@ function selectInitial() {
   const spot = linked || LANDING_ORDER.find((p) => !isSold(p.id)) || placements.shorts.front[0];
   state.selected = spot.id;
   state.garment = garmentOf(spot.id);
-  if (linked || spot.side !== "front") rotateTo(SIDE_AZIMUTH[spot.side]);
+  if (linked || currentSide() !== spot.side) rotateTo(SIDE_AZIMUTH[spot.side]);
 }
 
 /* ----------------------------------------------------------- UI logic */
@@ -499,8 +499,7 @@ function firstOpen(list) { return list.find((p) => !isSold(p.id))?.id || null; }
 function setGarment(garment) {
   state.garment = garment;
   const g = garment === "shirt" ? placements.shirt : placements.shorts;
-  const side = currentSide();
-  const onThisSide = g[side] || (garment === "shirt" && (side === "left" || side === "right") ? g.sleeves : []);
+  const onThisSide = visiblePlacements(); // same rules as the inventory list (state.garment already updated)
   const spot = firstOpen(onThisSide) || firstOpen([...g.front, ...(g.back || []), ...(g.sleeves || [])]) || g.front[0].id;
   state.selected = spot;
   const target = allPlacements.find((p) => p.id === spot);
@@ -598,7 +597,7 @@ openPlacementsBtn.addEventListener("click", () => {
 /* ------------------------------------------------------------ bidding */
 async function loadBids() {
   try {
-    const res = await fetch(BIDS_URL, { cache: "no-store" });
+    const res = await fetch(BIDS_URL, { cache: "no-store", signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(8000) : undefined });
     if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
     state.auction = { minBid: data.minBid, increment: data.increment, lockPrice: data.lockPrice, deadline: data.deadline, online: true };
@@ -619,7 +618,9 @@ async function loadBidLogos() {
     catch { console.warn("Bidder logo failed to load", b.id); }
   }));
 }
-const bidsReady = loadBids();
+// Gate the first render on live bids so we never land on a locked placement, but only briefly:
+// a slow or stalled API must not keep the viewer hidden. Polling keeps refreshing afterwards.
+const bidsReady = Promise.race([loadBids(), new Promise((r) => setTimeout(r, 4000))]);
 setInterval(loadBids, 30000);
 
 // Rasterise the previewed logo (max 800px, PNG) so it travels with the bid and survives a refresh.

@@ -29,10 +29,23 @@ const publicView = (id, rec) => ({
   count: rec.history?.length || 0,
   locked: Boolean(rec.locked),
   lockedBy: rec.locked ? rec.lockedBy?.company || null : null,
-  closed: Boolean(rec.closed)
+  closed: Boolean(rec.closed),
+  logo: rec.logo ? `/api/logos/${id}?v=${encodeURIComponent(rec.logo.at)}` : null
 });
 
 const clean = (v, max = 120) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+// Optional bidder logo, sent as a data URL the browser has already downscaled.
+const LOGO_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+const LOGO_MAX_BYTES = 1.5 * 1024 * 1024;
+function parseLogo(v) {
+  if (typeof v !== "string" || !v.startsWith("data:image/")) return null;
+  const m = v.match(/^data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!m || !LOGO_TYPES.has(m[1])) return { error: "Logo must be a PNG, JPG or WebP image." };
+  const bytes = Buffer.from(m[2], "base64");
+  if (bytes.length > LOGO_MAX_BYTES) return { error: "Logo is too large — please use an image under 1.5 MB." };
+  return { type: m[1], bytes };
+}
 
 export default async (req) => {
   const store = getStore({ name: "bids", consistency: "strong" });
@@ -57,9 +70,12 @@ export default async (req) => {
   const bidder = { company: clean(body.company), name: clean(body.name), email: clean(body.email).toLowerCase(), phone: clean(body.phone, 40) };
   const note = clean(body.note, 500);
 
+  const logo = parseLogo(body.logo);
+
   if (!PLACEMENT_ID.test(id)) return json({ error: "Unknown placement." }, 400);
   if (!bidder.company || !bidder.name) return json({ error: "Company and contact name are required." }, 400);
   if (!EMAIL.test(bidder.email)) return json({ error: "A valid email address is required." }, 400);
+  if (logo?.error) return json({ error: logo.error }, 400);
   if (Date.now() > new Date(DEADLINE).getTime()) return json({ error: "Bidding has closed for this event." }, 409);
   if ((await soldPlacements(req.url)).has(id)) return json({ error: "This placement is already sold." }, 409);
 
@@ -86,7 +102,13 @@ export default async (req) => {
   }
   rec.high = amount;
   rec.bidder = bidder;
-  rec.history.push({ amount, type: rec.locked ? "lock" : "bid", at: now, ...bidder, note });
+  rec.history.push({ amount, type: rec.locked ? "lock" : "bid", at: now, ...bidder, note, logo: Boolean(logo) });
+  if (logo) {
+    await getStore({ name: "logos", consistency: "strong" }).set(id, logo.bytes, { metadata: { type: logo.type, company: bidder.company, email: bidder.email, at: now } });
+    rec.logo = { type: logo.type, size: logo.bytes.length, company: bidder.company, at: now };
+  } else if (rec.logo && previous && previous.email !== bidder.email) {
+    delete rec.logo; // a new high bidder without artwork shouldn't inherit the previous bidder's logo
+  }
   await store.setJSON(id, rec);
 
   if (rec.locked) {
@@ -106,6 +128,7 @@ export default async (req) => {
       `Contact: ${bidder.name}`,
       `Email: ${bidder.email}`,
       `Phone: ${bidder.phone || "-"}`,
+      logo ? `Logo: ${new URL(`/api/logos/${id}`, req.url)}` : "Logo: not uploaded",
       note ? `Note: ${note}` : "",
       previous ? `Outbid: ${previous.company} (${previous.email}) at ${usd(previous.amount)}` : "",
       `Time: ${now}`,

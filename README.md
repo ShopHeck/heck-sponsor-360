@@ -29,6 +29,8 @@ Deploy on Netlify: static files live in `public/`, and the bidding API is a Netl
 
 Open placements accept bids (min `$500`, `$50` increments) and a **Lock it now** buy-out at `$2,500` that closes the placement. Bids and locks are stored per placement in the `bids` Blobs store (company, contact, email, phone, note, full history); the public API only exposes the high bid, bidder company and count.
 
+**Logos** — a logo uploaded before bidding is downscaled in the browser (max 800px PNG) and sent with the bid. It is stored in the `logos` Blobs store (one key per placement, 1.5 MB cap, PNG/JPG/WebP only), served at `/api/logos/:id`, and rendered on the model and detail card once the placement is locked or won. A new high bidder without artwork clears the previous bidder's logo.
+
 **Emails (Resend)** — the bidder gets a confirmation, the previous high bidder an "outbid" notice, and Michael a copy of everything.
 
 **Invoices (Stripe)** — no card is taken in the portal. Instead:

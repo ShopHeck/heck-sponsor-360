@@ -296,7 +296,7 @@ function normalise(root) {
 function loadImage(src) {
   return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
 }
-const sponsorsReady = fetch(SPONSORS_URL)
+const sponsorsReady = fetch(SPONSORS_URL, { cache: "no-store" })
   .then((r) => (r.ok ? r.json() : {}))
   .then((data) => Promise.all(Object.entries(data).map(async ([id, entry]) => {
     if (!allPlacements.some((p) => p.id === id)) { console.warn("Unknown placement in sponsors.json", id); return; }

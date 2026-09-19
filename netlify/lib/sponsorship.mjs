@@ -5,7 +5,7 @@
    Environment:
      STRIPE_SECRET_KEY  – enables invoicing (sk_test_… locally, sk_live_… in prod)
      RESEND_API_KEY     – enables email
-     NOTIFY_FROM        – verified Resend sender, e.g. "Team Heck <sponsors@heckholdings.com>"
+     NOTIFY_FROM        – verified Resend sender (default "Team Heck Sponsorships <sponsors@michaelheckert.com>")
      NOTIFY_EMAIL       – Michael's inbox (also the reply-to on sponsor emails)
      PORTAL_URL         – public portal URL used in emails (falls back to Netlify's URL)
 --------------------------------------------------------------------------- */
@@ -57,7 +57,7 @@ export async function sendEmail({ to, subject, text, html, replyTo }) {
     method: "POST",
     headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
     body: JSON.stringify({
-      from: process.env.NOTIFY_FROM || "Sponsorship Portal <onboarding@resend.dev>",
+      from: process.env.NOTIFY_FROM || "Team Heck Sponsorships <sponsors@michaelheckert.com>",
       to: Array.isArray(to) ? to : [to],
       ...(replyTo ? { reply_to: replyTo } : {}),
       subject,

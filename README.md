@@ -43,7 +43,7 @@ Environment variables (Netlify → Site configuration → Environment variables)
 | --- | --- |
 | `STRIPE_SECRET_KEY` | **Required for invoicing.** `sk_live_…` in production; use `sk_test_…` locally. |
 | `RESEND_API_KEY` | **Required for email.** |
-| `NOTIFY_FROM` | Verified Resend sender, e.g. `Team Heck Sponsorships <sponsors@heckholdings.com>`. The default `onboarding@resend.dev` can only deliver to your own Resend account address, so set this before going live. |
+| `NOTIFY_FROM` | Resend sender; defaults to `Team Heck Sponsorships <sponsors@michaelheckert.com>` (michaelheckert.com is verified in Resend). |
 | `NOTIFY_EMAIL` | Michael's inbox; also the reply-to on sponsor emails (default `michaelheckert@heckholdings.com`). |
 | `PORTAL_URL` | Public portal URL used in emails (defaults to Netlify's `URL`). |
 | `ADMIN_TOKEN` | Enables `POST /api/close-auction` for manual runs. |

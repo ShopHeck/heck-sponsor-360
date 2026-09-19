@@ -331,7 +331,7 @@ loader.load(
     normalise(root);
     if (!facesPositiveZ(meshes)) { root.rotateY(Math.PI); normalise(root); }
     buildSlots(meshes);
-    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); stage.classList.add("is-ready"); });
+    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); scrollSelectedIntoView(); stage.classList.add("is-ready"); });
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
   (err) => {

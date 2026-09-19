@@ -392,8 +392,9 @@ function renderSelection() {
   openPlacementsBtn.hidden = !sold || !anyOpen;
 }
 function renderSlots() { slotMeshes.forEach(drawSlot); }
+const garmentOf = (id) => (id.startsWith("T") ? "shirt" : "shorts");
 function renderGarments() {
-  slotMeshes.forEach((s) => { s.mesh.visible = (state.garment === "shirt") === s.spot.id.startsWith("T"); });
+  document.querySelectorAll(".garment-tab").forEach((b) => { const on = b.dataset.garment === state.garment; b.classList.toggle("is-active", on); b.setAttribute("aria-selected", String(on)); });
 }
 function renderOrientation() {
   const side = currentSide();
@@ -405,7 +406,8 @@ function renderAll() { renderGarments(); renderSlots(); renderInventory(); rende
 
 function selectPlacement(id, focus = false) {
   state.selected = id;
-  renderSlots(); renderInventory(); renderSelection();
+  state.garment = garmentOf(id);
+  renderGarments(); renderSlots(); renderInventory(); renderSelection();
   if (!focus) scrollSelectedIntoView();
   if (focus) {
     const spot = findPlacement();
@@ -418,7 +420,6 @@ function firstOpen(list) { return (list.find((p) => !isSold(p.id)) || list[0]).i
 function setGarment(garment) {
   state.garment = garment;
   state.selected = firstOpen(garment === "shirt" ? placements.shirt.front : placements.shorts.front);
-  document.querySelectorAll(".garment-tab").forEach((b) => { const on = b.dataset.garment === garment; b.classList.toggle("is-active", on); b.setAttribute("aria-selected", String(on)); });
   if (currentSide() !== "front" && currentSide() !== "back") rotateTo(0);
   renderAll();
 }
@@ -451,7 +452,7 @@ function pickSlot(e) {
   const rect = canvas.getBoundingClientRect();
   pointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
-  return raycaster.intersectObjects(slotMeshes.filter((s) => s.mesh.visible).map((s) => s.mesh), false)[0];
+  return raycaster.intersectObjects(slotMeshes.map((s) => s.mesh), false)[0];
 }
 canvas.addEventListener("pointerdown", (e) => { downAt = [e.clientX, e.clientY]; });
 canvas.addEventListener("pointerup", (e) => {
@@ -508,7 +509,6 @@ openPlacementsBtn.addEventListener("click", () => {
   const garmentList = state.garment === "shirt" ? [...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves] : [...placements.shorts.front, ...placements.shorts.back];
   const next = visible || garmentList.find((p) => !isSold(p.id)) || allPlacements.find((p) => !isSold(p.id));
   if (!next) return;
-  if (next.id.startsWith("T") !== (state.garment === "shirt")) setGarment(next.id.startsWith("T") ? "shirt" : "shorts");
   selectPlacement(next.id, true);
 });
 document.getElementById("reserveButton").addEventListener("click", () => {

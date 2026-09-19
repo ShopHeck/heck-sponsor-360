@@ -53,6 +53,10 @@ Environment variables (Netlify → Site configuration → Environment variables)
 
 For local testing set `STRIPE_API_BASE` / `RESEND_API_BASE` to point the functions at a mock server.
 
+## Fight poster & share image
+
+`public/assets/backdrop/` holds the optimised BKFC poster set: `stage-900/1500.webp` (pre-blurred, darkened backdrop behind the 3D stage — the model floor is a shadow-only material so the poster shows through), `fight-poster.webp` (poster card in the intro panel + lightbox), and `og-image.jpg` (1200×630 social share image referenced by the `og:`/`twitter:` meta tags). To swap in a new poster, regenerate with `ffmpeg` (see git history for the exact filters) and keep the same filenames.
+
 ## Embed on teamheck.netlify.app
 
 Once hosted, paste this where the portal should appear (the "Embed portal" button in the app generates the same snippet):

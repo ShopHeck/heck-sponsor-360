@@ -156,7 +156,8 @@ fill.position.set(-2.5, 1.5, 3);
 scene.add(fill);
 scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
-const floor = new THREE.Mesh(new THREE.CircleGeometry(2.4, 64), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.55, metalness: 0.1 }));
+// Shadow-only floor so the fight-poster backdrop shows through and the athlete still grounds with a soft shadow.
+const floor = new THREE.Mesh(new THREE.CircleGeometry(2.4, 64), new THREE.ShadowMaterial({ opacity: 0.55 }));
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
@@ -673,6 +674,12 @@ async function submitBid(type) {
 }
 bidForm.addEventListener("submit", (e) => { e.preventDefault(); submitBid("bid"); });
 lockButton.addEventListener("click", () => submitBid("lock"));
+
+/* ------------------------------------------------------- fight poster */
+const posterDialog = document.getElementById("posterDialog");
+document.getElementById("posterButton").addEventListener("click", () => posterDialog.showModal());
+document.getElementById("posterClose").addEventListener("click", () => posterDialog.close());
+posterDialog.addEventListener("click", (e) => { if (e.target === posterDialog) posterDialog.close(); });
 
 /* -------------------------------------------------------------- embed */
 const embedDialog = document.getElementById("embedDialog");

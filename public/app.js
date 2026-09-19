@@ -58,7 +58,7 @@ const placements = {
 };
 const allPlacements = [...placements.shorts.front, ...placements.shorts.back, ...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves];
 
-const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0, bids: {}, auction: { minBid: 500, increment: 50, lockPrice: 2500, deadline: null, online: false } };
+const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, bidImages: {}, azimuth: 0, bids: {}, auction: { minBid: 500, increment: 50, lockPrice: 2500, deadline: null, online: false } };
 const SPONSORS_URL = "assets/sponsors.json";
 const BIDS_URL = "/api/bids";
 const isLocked = (id) => Boolean(state.bids[id]?.locked || state.bids[id]?.closed);
@@ -185,7 +185,7 @@ function drawSlot(slot) {
   const selected = spot.id === state.selected;
   const hovered = spot.id === state.hovered && !selected;
   g.clearRect(0, 0, c.width, c.height);
-  const soldImg = state.soldImages[spot.id];
+  const soldImg = state.soldImages[spot.id] || (isLocked(spot.id) ? state.bidImages[spot.id] : null);
   if (soldImg) {
     const pad = 6, bw = c.width - pad * 2, bh = c.height - pad * 2;
     const k = Math.min(bw / soldImg.width, bh / soldImg.height);
@@ -427,13 +427,14 @@ function renderSelection() {
   renderBidPanel(spot, bid);
   uploadLabel.textContent = state.logos[spot.id] ? "Replace logo preview" : "Upload logo preview";
   const preview = state.logos[spot.id];
-  previewThumb.hidden = !preview || Boolean(sold);
+  previewThumb.hidden = !preview || Boolean(sold || locked);
   if (preview) previewImg.src = preview;
-  sponsorLogoEl.hidden = !sold || !state.soldImages[spot.id];
-  if (sold && state.soldImages[spot.id]) {
-    sponsorLogoEl.src = sold.logo;
-    sponsorLogoEl.alt = `${sold.sponsor} logo`;
-    sponsorLogoEl.classList.toggle("is-dark-art", isDarkArtwork(state.soldImages[spot.id]));
+  const cardLogo = sold ? state.soldImages[spot.id] : locked ? state.bidImages[spot.id] : null;
+  sponsorLogoEl.hidden = !cardLogo;
+  if (cardLogo) {
+    sponsorLogoEl.src = cardLogo.src;
+    sponsorLogoEl.alt = `${sold ? sold.sponsor : holder || "Sponsor"} logo`;
+    sponsorLogoEl.classList.toggle("is-dark-art", isDarkArtwork(cardLogo));
   }
   const anyOpen = allPlacements.some((p) => !isSold(p.id));
   openPlacementsBtn.hidden = !sold || !anyOpen;
@@ -592,15 +593,35 @@ async function loadBids() {
     const data = await res.json();
     state.auction = { minBid: data.minBid, increment: data.increment, lockPrice: data.lockPrice, deadline: data.deadline, online: true };
     state.bids = data.placements || {};
+    await loadBidLogos();
   } catch (err) {
     console.warn("bids unavailable", err);
     state.auction.online = false;
   }
   renderSlots(); renderInventory(); renderSelection();
 }
+async function loadBidLogos() {
+  await Promise.all(Object.values(state.bids).map(async (b) => {
+    if (!b.logo) { delete state.bidImages[b.id]; return; }
+    const url = new URL(b.logo, location.href).href;
+    if (state.bidImages[b.id]?.src === url) return;
+    try { state.bidImages[b.id] = await loadImage(url); }
+    catch { console.warn("Bidder logo failed to load", b.id); }
+  }));
+}
 loadBids();
 setInterval(loadBids, 30000);
 
+// Rasterise the previewed logo (max 800px, PNG) so it travels with the bid and survives a refresh.
+function logoDataUrl(id) {
+  const img = state.logoImages[id];
+  if (!img) return null;
+  const k = Math.min(1, 800 / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round((img.naturalWidth || img.width) * k)); c.height = Math.max(1, Math.round((img.naturalHeight || img.height) * k));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  try { return c.toDataURL("image/png"); } catch { return null; }
+}
 function showBidError(message) { bidError.textContent = message; bidError.hidden = false; }
 function showBidSuccess(spot, data, locked, email) {
   bidSuccessLink.hidden = !data.invoiceUrl;
@@ -612,7 +633,7 @@ function showBidSuccess(spot, data, locked, email) {
       : `Michael will email your ${usd(state.auction.lockPrice)} invoice to ${email} shortly.`;
   } else {
     bidSuccessTitle.textContent = `High bid: ${usd(data.placement.high)}`;
-    bidSuccessText.textContent = `Confirmation sent to ${email}. We'll let you know if you're outbid; the winning bidder is invoiced when bidding closes.`;
+    bidSuccessText.textContent = `Confirmation sent to ${email}.${state.logoImages[spot.id] ? " Your logo is saved with your bid." : ""} We'll let you know if you're outbid; the winning bidder is invoiced when bidding closes.`;
   }
   bidSuccess.hidden = false;
   bidSuccess.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -621,7 +642,7 @@ async function submitBid(type) {
   const spot = findPlacement();
   if (isSold(spot.id)) return;
   const f = bidForm.elements;
-  const payload = { id: spot.id, type, company: f.company.value.trim(), name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(), amount: Number(f.amount.value) };
+  const payload = { id: spot.id, type, company: f.company.value.trim(), name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(), amount: Number(f.amount.value), logo: logoDataUrl(spot.id) };
   if (!payload.company || !payload.name) return showBidError("Please enter your company and contact name.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return showBidError("Please enter a valid email address.");
   if (type === "bid" && (!Number.isFinite(payload.amount) || payload.amount < minimumBid(spot.id))) return showBidError(`Your bid must be at least ${usd(minimumBid(spot.id))}.`);
@@ -635,7 +656,7 @@ async function submitBid(type) {
   try {
     const res = await fetch(BIDS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
-    if (data.placement) state.bids[spot.id] = data.placement;
+    if (data.placement) { state.bids[spot.id] = data.placement; await loadBidLogos(); }
     if (!res.ok) { showBidError(data.error || "Your request could not be saved. Please try again."); renderSlots(); renderInventory(); renderSelection(); return; }
     const locked = Boolean(data.placement?.locked);
     renderSlots(); renderInventory(); renderSelection();

@@ -245,6 +245,7 @@ export async function invoicePlacement(store, id, rec, kind) {
   await store.setJSON(id, rec);
   await notifyOwner(`${id} · ${kind === "lock" ? "LOCKED" : "WON"} for ${usd(rec.high)} · invoiced · ${b.company}`, [
     `Placement: ${id} — ${describePlacement(id)}`, `Action: ${kind === "lock" ? "Lock It Now" : "Auction closed — winning bid"}`, `Company: ${b.company}`, `Contact: ${b.name} <${b.email}>`, `Phone: ${b.phone || "-"}`,
+    rec.logo ? `Logo: ${new URL(`/api/logos/${id}`, PORTAL_URL)}` : "Logo: not uploaded — request artwork",
     "", `Invoice ${rec.invoice.number || rec.invoice.id}: ${usd(rec.invoice.amount)} due on receipt`,
     `Sponsor pay link: ${rec.invoice.url}`,
     `Stripe dashboard: https://dashboard.stripe.com/invoices/${rec.invoice.id}`,

@@ -40,7 +40,7 @@ const placements = {
   shirt: {
     front: Array.from({ length: 12 }, (_, i) => {
       const row = Math.floor(i / 3), col = i % 3;
-      const top = 1.425 - row * 0.082;
+      const top = 1.468 - row * 0.082;
       return {
         id: `TF-${String(i + 1).padStart(2, "0")}`,
         name: `Front grid · Row ${row + 1}, column ${col + 1}`,
@@ -281,6 +281,8 @@ const sponsorsReady = fetch(SPONSORS_URL)
   .catch((err) => console.warn("sponsors.json unavailable", err));
 
 const modelUrl = new URLSearchParams(location.search).get("model") || DEFAULT_MODEL;
+const isEmbedded = window.self !== window.top || new URLSearchParams(location.search).has("embed");
+if (isEmbedded) document.documentElement.classList.add("is-embedded");
 const draco = new DRACOLoader().setDecoderPath(`${THREE_CDN}libs/draco/`);
 const loader = new GLTFLoader().setDRACOLoader(draco);
 loader.load(
@@ -515,7 +517,8 @@ document.getElementById("reserveButton").addEventListener("click", () => {
   const garment = spot.id.startsWith("T") ? "black T-shirt" : "fight shorts";
   const subject = encodeURIComponent(`BKFC Clearwater sponsorship inquiry: ${spot.id}`);
   const bodyText = encodeURIComponent(`Hi Michael,\n\nI am interested in the ${spot.name} placement (${spot.id}) on the ${garment} for BKFC Clearwater.\n\nCompany:\nName:\nPhone:\n`);
-  location.href = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${bodyText}`;
+  const mailto = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${bodyText}`;
+  if (isEmbedded) window.open(mailto, "_top"); else location.href = mailto;
   toast(`Opening your email app… or write to ${CONTACT_EMAIL}`);
 });
 
@@ -540,6 +543,20 @@ copyButton.addEventListener("click", async () => {
   }
   setTimeout(() => { copyButton.textContent = "Copy embed code"; }, 1800);
 });
+
+/* ------------------------------------------------------- host sizing */
+if (isEmbedded) {
+  let lastHeight = 0;
+  const postHeight = () => {
+    const height = Math.ceil(document.documentElement.scrollHeight);
+    if (height === lastHeight) return;
+    lastHeight = height;
+    window.parent.postMessage({ type: "heck-portal-height", height }, "*");
+  };
+  new ResizeObserver(postHeight).observe(document.body);
+  window.addEventListener("load", postHeight);
+  postHeight();
+}
 
 /* --------------------------------------------------------------- loop */
 function resize() {

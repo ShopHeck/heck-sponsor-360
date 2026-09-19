@@ -91,6 +91,8 @@ const bidError = document.getElementById("bidError");
 const bidButton = document.getElementById("bidButton");
 const lockButton = document.getElementById("lockButton");
 const bidNote = document.getElementById("bidNote");
+const lockPriceEl = document.getElementById("lockPrice");
+const lockLabel = document.getElementById("lockLabel");
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 function toast(message) {
@@ -428,19 +430,22 @@ function renderBidPanel(spot, bid) {
   const floor = minimumBid(spot.id);
   if (bid?.high) {
     bidHigh.textContent = usd(bid.high);
-    bidMeta.textContent = `${bid.company ? bid.company + " · " : ""}${bid.count} bid${bid.count === 1 ? "" : "s"} · next ${usd(floor)}`;
+    bidMeta.textContent = `${bid.company ? bid.company + " · " : ""}${bid.count} bid${bid.count === 1 ? "" : "s"} · ${online ? `next ${usd(floor)}` : "bidding unavailable offline"}`;
   } else {
     bidHigh.textContent = "No bids yet";
     bidMeta.textContent = online ? `Opening bid ${usd(minBid)}` : "Bidding unavailable offline";
   }
   const amount = bidForm.elements.amount;
   amount.min = floor; amount.step = increment; amount.placeholder = String(floor);
-  if (renderBidPanel.last !== spot.id || !amount.value || Number(amount.value) < floor) amount.value = floor;
+  const switched = renderBidPanel.last !== spot.id;
+  if (switched || !amount.value || Number(amount.value) < floor) amount.value = floor;
   renderBidPanel.last = spot.id;
-  document.getElementById("lockPrice").textContent = usd(lockPrice);
-  document.getElementById("lockPriceButton").textContent = usd(lockPrice);
-  bidButton.disabled = lockButton.disabled = !online;
-  bidError.hidden = true;
+  lockPriceEl.textContent = usd(lockPrice);
+  if (!submitBid.busy) {
+    lockLabel.textContent = `Lock it now — ${usd(lockPrice)}`;
+    bidButton.disabled = lockButton.disabled = !online;
+  }
+  if (switched) bidError.hidden = true;
   if (state.auction.deadline) {
     const d = new Date(state.auction.deadline);
     bidNote.firstChild.textContent = `Bids start at ${usd(minBid)} in ${usd(increment)} steps and close ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}. Nothing is charged here — Michael confirms winning bids and lock-ins personally. `;
@@ -593,9 +598,10 @@ async function submitBid(type) {
   if (type === "bid" && (!Number.isFinite(payload.amount) || payload.amount < minimumBid(spot.id))) return showBidError(`Your bid must be at least ${usd(minimumBid(spot.id))}.`);
   if (type === "lock" && !confirm(`Lock ${spot.id} · ${spot.name} now for ${usd(state.auction.lockPrice)}? This closes bidding and Michael will contact you to confirm.`)) return;
   bidError.hidden = true;
+  submitBid.busy = true;
   bidButton.disabled = lockButton.disabled = true;
-  const busy = type === "lock" ? lockButton : bidButton;
-  const label = busy.innerHTML; busy.textContent = "Sending…";
+  const busy = type === "lock" ? lockLabel : bidButton;
+  const label = busy.textContent; busy.textContent = "Sending…";
   try {
     const res = await fetch(BIDS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
@@ -606,7 +612,8 @@ async function submitBid(type) {
   } catch {
     showBidError("Network error — please try again.");
   } finally {
-    busy.innerHTML = label;
+    submitBid.busy = false;
+    busy.textContent = label;
     bidButton.disabled = lockButton.disabled = !state.auction.online;
   }
 }

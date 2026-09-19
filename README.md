@@ -33,6 +33,17 @@ Once hosted, paste this where the portal should appear (the "Embed portal" butto
 <iframe src="https://heck-sponsor-360.netlify.app/" title="Michael Heckert sponsorship portal" loading="lazy" allow="fullscreen" style="width:100%;height:900px;border:0"></iframe>
 ```
 
+When framed, the portal switches to an embed layout (fixed stage height, no "Embed portal" button) and posts its document height to the host as `{ type: "heck-portal-height", height }`. To make the iframe grow with the content instead of scrolling internally, add on the host page:
+
+```html
+<script>
+addEventListener("message", (e) => {
+  if (e.origin !== "https://heck-sponsor-360.netlify.app" || e.data?.type !== "heck-portal-height") return;
+  document.querySelector('iframe[src^="https://heck-sponsor-360.netlify.app"]').style.height = e.data.height + "px";
+});
+</script>
+```
+
 ## 3D viewer
 
 The stage is a real-time three.js (WebGL) scene loaded from the unpkg import map in `index.html`. The athlete is `assets/models/heckert.glb`, a textured full-body mesh of Michael generated with Meshy (multi-image-to-3D) from his reference photos, already dressed in the plain black T-shirt and orange fight shorts, then Draco/WebP-compressed with `@gltf-transform/cli`. Every placement is a `DecalGeometry` patch projected onto the mesh surface (clickable, raycast-selected, and textured with the uploaded logo). Placement coordinates live at the top of `app.js`.

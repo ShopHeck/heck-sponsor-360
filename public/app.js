@@ -58,10 +58,13 @@ const placements = {
 };
 const allPlacements = [...placements.shorts.front, ...placements.shorts.back, ...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves];
 
-const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0 };
-const CONTACT_EMAIL = "michaelheckert@heckholdings.com";
+const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0, bids: {}, auction: { minBid: 500, increment: 50, lockPrice: 2500, deadline: null, online: false } };
 const SPONSORS_URL = "assets/sponsors.json";
-const isSold = (id) => Boolean(state.sold[id]);
+const BIDS_URL = "/api/bids";
+const isLocked = (id) => Boolean(state.bids[id]?.locked);
+const isSold = (id) => Boolean(state.sold[id]) || isLocked(id);
+const usd = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
+const minimumBid = (id) => { const b = state.bids[id]; return Math.max(state.auction.minBid, b?.high ? b.high + state.auction.increment : 0); };
 
 /* ------------------------------------------------------------------ DOM */
 const stage = document.getElementById("modelStage");
@@ -81,6 +84,13 @@ const previewImg = document.getElementById("previewImg");
 const removePreview = document.getElementById("removePreview");
 const sponsorLogoEl = document.getElementById("sponsorLogo");
 const openPlacementsBtn = document.getElementById("openPlacements");
+const bidForm = document.getElementById("bidForm");
+const bidHigh = document.getElementById("bidHigh");
+const bidMeta = document.getElementById("bidMeta");
+const bidError = document.getElementById("bidError");
+const bidButton = document.getElementById("bidButton");
+const lockButton = document.getElementById("lockButton");
+const bidNote = document.getElementById("bidNote");
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 function toast(message) {
@@ -193,8 +203,19 @@ function drawSlot(slot) {
     roundRect(g, 8, 8, c.width - 16, c.height - 16, 14); g.stroke();
     g.setLineDash([]);
     g.fillStyle = selected ? "#f36a16" : "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
-    g.font = `700 ${Math.round(c.height * 0.36)}px "Barlow Condensed", Impact, sans-serif`;
-    g.fillText(spot.id.replace(/^[A-Z]+-/, ""), c.width / 2, c.height / 2 + 2);
+    const bid = state.bids[spot.id];
+    if (bid?.locked) {
+      g.font = `700 ${Math.round(c.height * 0.26)}px "Barlow Condensed", Impact, sans-serif`;
+      g.fillText("LOCKED", c.width / 2, c.height / 2 + 2);
+    } else if (bid?.high) {
+      g.font = `700 ${Math.round(c.height * 0.28)}px "Barlow Condensed", Impact, sans-serif`;
+      g.fillText(spot.id.replace(/^[A-Z]+-/, ""), c.width / 2, c.height * 0.36);
+      g.font = `600 ${Math.round(c.height * 0.22)}px "Barlow Condensed", Impact, sans-serif`;
+      g.fillText(usd(bid.high), c.width / 2, c.height * 0.68);
+    } else {
+      g.font = `700 ${Math.round(c.height * 0.36)}px "Barlow Condensed", Impact, sans-serif`;
+      g.fillText(spot.id.replace(/^[A-Z]+-/, ""), c.width / 2, c.height / 2 + 2);
+    }
   }
   if (selected) { g.lineWidth = 10; g.strokeStyle = "#f36a16"; roundRect(g, 5, 5, c.width - 10, c.height - 10, 16); g.stroke(); }
   tex.needsUpdate = true;
@@ -346,14 +367,19 @@ function renderInventory() {
   availabilityEl.classList.toggle("is-full", open === 0);
   items.forEach((spot, index) => {
     const sold = state.sold[spot.id];
+    const bid = state.bids[spot.id];
+    const locked = !sold && bid?.locked;
     const button = document.createElement("button");
-    button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}${sold ? " is-sold" : ""}`;
-    button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${sold ? sold.sponsor : spot.name}</strong><small>${spot.id}${sold ? " · " + spot.name : ""}</small></span><span class="status">${sold ? "SOLD" : "OPEN"}</span>`;
+    button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}${sold || locked ? " is-sold" : ""}`;
+    const title = sold ? sold.sponsor : locked ? bid.lockedBy || "Locked" : spot.name;
+    const status = sold ? "SOLD" : locked ? "LOCKED" : bid?.high ? `BID ${usd(bid.high)}` : `OPEN · ${usd(state.auction.minBid)}`;
+    button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${escapeHtml(title)}</strong><small>${spot.id}${sold || locked ? " · " + spot.name : ""}</small></span><span class="status">${status}</span>`;
     button.setAttribute("aria-pressed", String(spot.id === state.selected));
     button.addEventListener("click", () => selectPlacement(spot.id, true));
     inventoryList.append(button);
   });
 }
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function scrollSelectedIntoView() {
   const el = inventoryList.querySelector(".inventory-item.is-selected");
   if (el) el.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -373,11 +399,16 @@ function isDarkArtwork(img) {
 function renderSelection() {
   const spot = findPlacement();
   const sold = state.sold[spot.id];
+  const bid = state.bids[spot.id];
+  const locked = !sold && bid?.locked;
   selectionCode.textContent = spot.id;
-  selectionStatus.textContent = sold ? "SOLD" : "AVAILABLE";
-  selectionCard.classList.toggle("is-sold", Boolean(sold));
-  selectionName.textContent = sold ? sold.sponsor : spot.name;
-  selectionDescription.textContent = sold ? `${spot.name}. This placement is confirmed for ${sold.sponsor}.` : spot.detail;
+  selectionStatus.textContent = sold ? "SOLD" : locked ? "LOCKED" : bid?.high ? "BIDDING" : "AVAILABLE";
+  selectionCard.classList.toggle("is-sold", Boolean(sold || locked));
+  selectionName.textContent = sold ? sold.sponsor : locked ? bid.lockedBy || "Locked in" : spot.name;
+  selectionDescription.textContent = sold ? `${spot.name}. This placement is confirmed for ${sold.sponsor}.`
+    : locked ? `${spot.name}. This placement has been locked in${bid.lockedBy ? ` by ${bid.lockedBy}` : ""} and is pending confirmation.`
+    : spot.detail;
+  renderBidPanel(spot, bid);
   uploadLabel.textContent = state.logos[spot.id] ? "Replace logo preview" : "Upload logo preview";
   const preview = state.logos[spot.id];
   previewThumb.hidden = !preview || Boolean(sold);
@@ -392,6 +423,29 @@ function renderSelection() {
   openPlacementsBtn.hidden = !sold || !anyOpen;
 }
 function renderSlots() { slotMeshes.forEach(drawSlot); }
+function renderBidPanel(spot, bid) {
+  const { minBid, increment, lockPrice, online } = state.auction;
+  const floor = minimumBid(spot.id);
+  if (bid?.high) {
+    bidHigh.textContent = usd(bid.high);
+    bidMeta.textContent = `${bid.company ? bid.company + " · " : ""}${bid.count} bid${bid.count === 1 ? "" : "s"} · next ${usd(floor)}`;
+  } else {
+    bidHigh.textContent = "No bids yet";
+    bidMeta.textContent = online ? `Opening bid ${usd(minBid)}` : "Bidding unavailable offline";
+  }
+  const amount = bidForm.elements.amount;
+  amount.min = floor; amount.step = increment; amount.placeholder = String(floor);
+  if (renderBidPanel.last !== spot.id || !amount.value || Number(amount.value) < floor) amount.value = floor;
+  renderBidPanel.last = spot.id;
+  document.getElementById("lockPrice").textContent = usd(lockPrice);
+  document.getElementById("lockPriceButton").textContent = usd(lockPrice);
+  bidButton.disabled = lockButton.disabled = !online;
+  bidError.hidden = true;
+  if (state.auction.deadline) {
+    const d = new Date(state.auction.deadline);
+    bidNote.firstChild.textContent = `Bids start at ${usd(minBid)} in ${usd(increment)} steps and close ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}. Nothing is charged here — Michael confirms winning bids and lock-ins personally. `;
+  }
+}
 const garmentOf = (id) => (id.startsWith("T") ? "shirt" : "shorts");
 function renderGarments() {
   document.querySelectorAll(".garment-tab").forEach((b) => { const on = b.dataset.garment === state.garment; b.classList.toggle("is-active", on); b.setAttribute("aria-selected", String(on)); });
@@ -511,16 +565,53 @@ openPlacementsBtn.addEventListener("click", () => {
   if (!next) return;
   selectPlacement(next.id, true);
 });
-document.getElementById("reserveButton").addEventListener("click", () => {
+/* ------------------------------------------------------------ bidding */
+async function loadBids() {
+  try {
+    const res = await fetch(BIDS_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.statusText);
+    const data = await res.json();
+    state.auction = { minBid: data.minBid, increment: data.increment, lockPrice: data.lockPrice, deadline: data.deadline, online: true };
+    state.bids = data.placements || {};
+  } catch (err) {
+    console.warn("bids unavailable", err);
+    state.auction.online = false;
+  }
+  renderSlots(); renderInventory(); renderSelection();
+}
+loadBids();
+setInterval(loadBids, 30000);
+
+function showBidError(message) { bidError.textContent = message; bidError.hidden = false; }
+async function submitBid(type) {
   const spot = findPlacement();
   if (isSold(spot.id)) return;
-  const garment = spot.id.startsWith("T") ? "black T-shirt" : "fight shorts";
-  const subject = encodeURIComponent(`BKFC Clearwater sponsorship inquiry: ${spot.id}`);
-  const bodyText = encodeURIComponent(`Hi Michael,\n\nI am interested in the ${spot.name} placement (${spot.id}) on the ${garment} for BKFC Clearwater.\n\nCompany:\nName:\nPhone:\n`);
-  const mailto = `mailto:${CONTACT_EMAIL}?subject=${subject}&body=${bodyText}`;
-  if (isEmbedded) window.open(mailto, "_top"); else location.href = mailto;
-  toast(`Opening your email app… or write to ${CONTACT_EMAIL}`);
-});
+  const f = bidForm.elements;
+  const payload = { id: spot.id, type, company: f.company.value.trim(), name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(), amount: Number(f.amount.value) };
+  if (!payload.company || !payload.name) return showBidError("Please enter your company and contact name.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return showBidError("Please enter a valid email address.");
+  if (type === "bid" && (!Number.isFinite(payload.amount) || payload.amount < minimumBid(spot.id))) return showBidError(`Your bid must be at least ${usd(minimumBid(spot.id))}.`);
+  if (type === "lock" && !confirm(`Lock ${spot.id} · ${spot.name} now for ${usd(state.auction.lockPrice)}? This closes bidding and Michael will contact you to confirm.`)) return;
+  bidError.hidden = true;
+  bidButton.disabled = lockButton.disabled = true;
+  const busy = type === "lock" ? lockButton : bidButton;
+  const label = busy.innerHTML; busy.textContent = "Sending…";
+  try {
+    const res = await fetch(BIDS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const data = await res.json().catch(() => ({}));
+    if (data.placement) state.bids[spot.id] = data.placement;
+    if (!res.ok) { showBidError(data.error || "Your request could not be saved. Please try again."); renderSlots(); renderInventory(); renderSelection(); return; }
+    toast(type === "lock" ? `${spot.id} is locked in for ${usd(state.auction.lockPrice)}. Michael will be in touch.` : `You're the high bidder on ${spot.id} at ${usd(data.placement.high)}.`);
+    renderSlots(); renderInventory(); renderSelection();
+  } catch {
+    showBidError("Network error — please try again.");
+  } finally {
+    busy.innerHTML = label;
+    bidButton.disabled = lockButton.disabled = !state.auction.online;
+  }
+}
+bidForm.addEventListener("submit", (e) => { e.preventDefault(); submitBid("bid"); });
+lockButton.addEventListener("click", () => submitBid("lock"));
 
 /* -------------------------------------------------------------- embed */
 const embedDialog = document.getElementById("embedDialog");

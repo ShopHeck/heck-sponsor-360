@@ -1,0 +1,15 @@
+{
+  "name": "heck-sponsor-360",
+  "version": "1.0.0",
+  "description": "Standalone, embeddable 360° sponsorship placement selector for Team Heck. Static HTML/CSS/JS with no build step.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}

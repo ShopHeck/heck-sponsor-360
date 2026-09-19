@@ -70,7 +70,40 @@
             <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
             <span id="uploadLabel">Upload logo preview</span>
           </label>
-          <button class="primary-cta" id="reserveButton">Request this placement</button>
+          <div class="bid-panel" id="bidPanel">
+            <div class="bid-status">
+              <div class="bid-stat"><span>Current bid</span><strong id="bidHigh">—</strong><small id="bidMeta">Loading…</small></div>
+              <div class="bid-stat bid-stat--lock"><span>Lock it now</span><strong id="lockPrice">$2,500</strong><small>Skip the auction</small></div>
+            </div>
+            <form id="bidForm" novalidate>
+              <div class="bid-fields">
+                <input name="company" placeholder="Company" autocomplete="organization" required>
+                <input name="name" placeholder="Contact name" autocomplete="name" required>
+                <input name="email" type="email" placeholder="Email" autocomplete="email" required>
+                <input name="phone" type="tel" placeholder="Phone (optional)" autocomplete="tel">
+              </div>
+              <div class="bid-actions">
+                <label class="bid-amount"><span>$</span><input name="amount" type="number" inputmode="numeric" min="500" step="50" aria-label="Bid amount in US dollars"></label>
+                <button type="submit" class="primary-cta" id="bidButton">Place bid</button>
+              </div>
+              <button type="button" class="lock-cta" id="lockButton">Lock it now — <span id="lockPriceButton">$2,500</span></button>
+              <p class="bid-error" id="bidError" role="alert" hidden></p>
+            </form>
+            <details class="bid-benefits">
+              <summary>What the winning sponsor gets</summary>
+              <p>Every open placement carries the full <strong>Champion package</strong> benefits, whether you win the auction or lock it now:</p>
+              <ul>
+                <li>Logo on the fight shorts and T-shirt at BKFC Clearwater, 50% larger than standard placements</li>
+                <li>Logo on the walkout robe and fan T-shirts</li>
+                <li>Social media promotion plus pre- and post-fight interview shout-outs</li>
+                <li>Post-fight branded media kit</li>
+                <li>Two VIP ringside tickets ($576 value)</li>
+                <li>Vendor table and logo on the photo backdrop at the downtown St. Pete Fight Week Fan Event</li>
+                <li>Official Sponsor listing on michaelheckert.com</li>
+              </ul>
+            </details>
+            <p class="bid-note" id="bidNote">Bids start at $500 in $50 steps. Nothing is charged here — Michael confirms winning bids and lock-ins personally. <a href="mailto:michaelheckert@heckholdings.com" id="contactLink" target="_top">Questions? Email Michael.</a></p>
+          </div>
           <p class="privacy-note">Your preview stays in this browser. Final artwork is confirmed personally.</p>
         </div>
       </aside>

@@ -27,7 +27,29 @@ Deploy on Netlify: static files live in `public/`, and the bidding API is a Netl
 
 ### Bidding
 
-Open placements accept bids (min `$500`, `$50` increments) and a **Lock it now** buy-out at `$2,500` that closes the placement. Bids and locks are stored per placement in the `bids` Blobs store; the public API only exposes the high bid, bidder company and count. Optional environment variables: `MIN_BID`, `BID_INCREMENT`, `LOCK_PRICE`, `BID_DEADLINE` (ISO date), `NOTIFY_EMAIL`, and `RESEND_API_KEY` + `NOTIFY_FROM` to email Michael on every bid/lock. No payment is taken in the portal; bidder contact details are kept server-side for follow-up.
+Open placements accept bids (min `$500`, `$50` increments) and a **Lock it now** buy-out at `$2,500` that closes the placement. Bids and locks are stored per placement in the `bids` Blobs store (company, contact, email, phone, note, full history); the public API only exposes the high bid, bidder company and count.
+
+**Emails (Resend)** — the bidder gets a confirmation, the previous high bidder an "outbid" notice, and Michael a copy of everything.
+
+**Invoices (Stripe)** — no card is taken in the portal. Instead:
+
+- **Lock it now** (or a bid ≥ `$2,500`) creates a Stripe customer + finalised invoice for the lock price, *due on receipt*, and emails the sponsor a **Pay invoice** link (Stripe's hosted invoice page) via Resend. The same link is shown in the portal right after locking. Stripe itself does not send email.
+- **Auction winners** — `netlify/functions/close-auction.mjs` runs daily; once `BID_DEADLINE` has passed it marks each open placement with bids as closed and invoices the high bidder the same way. It also retries any lock whose invoice failed. Trigger it manually (or force-close early) with `curl -X POST -H "authorization: Bearer $ADMIN_TOKEN" https://<site>/api/close-auction[?force=1]`; locally, `npx netlify functions:invoke close-auction`.
+- Every invoice is recorded on the placement (`invoice.id/url/status`) so re-runs never double-invoice. Failures email Michael with the Stripe error.
+
+Environment variables (Netlify → Site configuration → Environment variables):
+
+| Variable | Purpose |
+| --- | --- |
+| `STRIPE_SECRET_KEY` | **Required for invoicing.** `sk_live_…` in production; use `sk_test_…` locally. |
+| `RESEND_API_KEY` | **Required for email.** |
+| `NOTIFY_FROM` | Verified Resend sender, e.g. `Team Heck Sponsorships <sponsors@heckholdings.com>`. The default `onboarding@resend.dev` can only deliver to your own Resend account address, so set this before going live. |
+| `NOTIFY_EMAIL` | Michael's inbox; also the reply-to on sponsor emails (default `michaelheckert@heckholdings.com`). |
+| `PORTAL_URL` | Public portal URL used in emails (defaults to Netlify's `URL`). |
+| `ADMIN_TOKEN` | Enables `POST /api/close-auction` for manual runs. |
+| `MIN_BID`, `BID_INCREMENT`, `LOCK_PRICE`, `BID_DEADLINE`, `EVENT_NAME` | Auction settings (defaults `500`, `50`, `2500`, `2026-10-16T23:59:59-04:00`, `BKFC Clearwater`). |
+
+For local testing set `STRIPE_API_BASE` / `RESEND_API_BASE` to point the functions at a mock server.
 
 ## Embed on teamheck.netlify.app
 

@@ -70,6 +70,11 @@
             <input id="logoInput" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml">
             <span id="uploadLabel">Upload logo preview</span>
           </label>
+          <div class="bid-success" id="bidSuccess" role="status" hidden>
+            <strong id="bidSuccessTitle"></strong>
+            <p id="bidSuccessText"></p>
+            <a id="bidSuccessLink" class="pay-cta" target="_blank" rel="noopener" hidden>Pay invoice</a>
+          </div>
           <div class="bid-panel" id="bidPanel">
             <div class="bid-status">
               <div class="bid-stat"><span>Current bid</span><strong id="bidHigh">—</strong><small id="bidMeta">Loading…</small></div>
@@ -102,7 +107,7 @@
                 <li>Official Sponsor listing on michaelheckert.com</li>
               </ul>
             </details>
-            <p class="bid-note" id="bidNote">Bids start at $500 in $50 steps. Nothing is charged here — Michael confirms winning bids and lock-ins personally. <a href="mailto:michaelheckert@heckholdings.com" id="contactLink" target="_top">Questions? Email Michael.</a></p>
+            <p class="bid-note" id="bidNote">Bids start at $500 in $50 steps. Nothing is charged on this page — lock-ins receive a Stripe invoice by email right away, and the winning bidder is invoiced when bidding closes. <a href="mailto:michaelheckert@heckholdings.com" id="contactLink" target="_top">Questions? Email Michael.</a></p>
           </div>
           <p class="privacy-note">Your preview stays in this browser. Final artwork is confirmed personally.</p>
         </div>

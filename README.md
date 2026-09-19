@@ -23,7 +23,11 @@ python3 -m http.server 4173
 
 ## Deploy
 
-Any static host works (Netlify drag-and-drop, GitHub Pages, Vercel). Publish the repository root. `netlify.toml` is included for Netlify.
+Deploy on Netlify: static files live in `public/`, and the bidding API is a Netlify Function (`netlify/functions/bids.mjs`, served at `/api/bids`) backed by Netlify Blobs. `netlify.toml` configures both. Run locally with `npm install && npx netlify dev`.
+
+### Bidding
+
+Open placements accept bids (min `$500`, `$50` increments) and a **Lock it now** buy-out at `$2,500` that closes the placement. Bids and locks are stored per placement in the `bids` Blobs store; the public API only exposes the high bid, bidder company and count. Optional environment variables: `MIN_BID`, `BID_INCREMENT`, `LOCK_PRICE`, `BID_DEADLINE` (ISO date), `NOTIFY_EMAIL`, and `RESEND_API_KEY` + `NOTIFY_FROM` to email Michael on every bid/lock. No payment is taken in the portal; bidder contact details are kept server-side for follow-up.
 
 ## Embed on teamheck.netlify.app
 
@@ -58,7 +62,7 @@ The Meshy mesh is an AI approximation, not a scan. To replace it with a photogra
 
 ## Sold placements (confirmed sponsors)
 
-Confirmed sponsors are listed in `assets/sponsors.json`, keyed by placement ID. Each entry names the sponsor and points to a logo file (transparent PNG or SVG, roughly the aspect ratio of the placement) stored in `assets/sponsors/`:
+Confirmed sponsors are listed in `public/assets/sponsors.json`, keyed by placement ID. Each entry names the sponsor and points to a logo file (transparent PNG or SVG, roughly the aspect ratio of the placement) stored in `public/assets/sponsors/`:
 
 ```json
 {

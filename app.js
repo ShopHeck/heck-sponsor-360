@@ -40,7 +40,7 @@ const placements = {
   shirt: {
     front: Array.from({ length: 12 }, (_, i) => {
       const row = Math.floor(i / 3), col = i % 3;
-      const top = 1.425 - row * 0.082;
+      const top = 1.468 - row * 0.082;
       return {
         id: `TF-${String(i + 1).padStart(2, "0")}`,
         name: `Front grid · Row ${row + 1}, column ${col + 1}`,

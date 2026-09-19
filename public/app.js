@@ -707,7 +707,9 @@ copyButton.addEventListener("click", async () => {
 if (isEmbedded) {
   let lastHeight = 0;
   const postHeight = () => {
-    const height = Math.ceil(document.documentElement.scrollHeight);
+    // Measure the body, not documentElement.scrollHeight: the latter is never smaller than the
+    // iframe viewport, so the host frame could grow but never shrink back to the content.
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
     if (height === lastHeight) return;
     lastHeight = height;
     window.parent.postMessage({ type: "heck-portal-height", height }, "*");

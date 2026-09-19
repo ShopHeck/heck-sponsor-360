@@ -331,22 +331,26 @@ loader.load(
     normalise(root);
     if (!facesPositiveZ(meshes)) { root.rotateY(Math.PI); normalise(root); }
     buildSlots(meshes);
-    sponsorsReady.then(() => { selectInitial(); renderAll(); stage.classList.add("is-ready"); });
+    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); stage.classList.add("is-ready"); });
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
   (err) => {
     console.error(err);
     stage.classList.add("has-error");
     loadingEl.textContent = "The 3D model could not be loaded. Please refresh the page.";
-    sponsorsReady.then(() => { selectInitial(); renderAll(); });
+    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); });
   }
 );
-// Emails deep-link to a placement as /#SF-L1; otherwise start on the first open shorts slot.
+// Emails deep-link to a placement as /#SF-L1; otherwise land on the first OPEN placement,
+// preferring camera-facing positions: shorts front, T-shirt front, shorts back, T-shirt back, sleeves.
+const LANDING_ORDER = [...placements.shorts.front, ...placements.shirt.front, ...placements.shorts.back, ...placements.shirt.back, ...placements.shirt.sleeves];
 function selectInitial() {
   const wanted = decodeURIComponent(location.hash.slice(1)).toUpperCase();
-  const spot = allPlacements.find((p) => p.id === wanted);
-  if (spot) { state.selected = spot.id; state.garment = garmentOf(spot.id); rotateTo(SIDE_AZIMUTH[spot.side]); }
-  else state.selected = firstOpen(placements.shorts.front);
+  const linked = allPlacements.find((p) => p.id === wanted);
+  const spot = linked || LANDING_ORDER.find((p) => !isSold(p.id)) || placements.shorts.front[0];
+  state.selected = spot.id;
+  state.garment = garmentOf(spot.id);
+  if (linked || currentSide() !== spot.side) rotateTo(SIDE_AZIMUTH[spot.side]);
 }
 
 /* ----------------------------------------------------------- UI logic */
@@ -491,11 +495,15 @@ function selectPlacement(id, focus = false) {
     if (Math.abs(delta) > 0.6) rotateTo(cur + delta);
   }
 }
-function firstOpen(list) { return (list.find((p) => !isSold(p.id)) || list[0]).id; }
+function firstOpen(list) { return list.find((p) => !isSold(p.id))?.id || null; }
 function setGarment(garment) {
   state.garment = garment;
-  state.selected = firstOpen(garment === "shirt" ? placements.shirt.front : placements.shorts.front);
-  if (currentSide() !== "front" && currentSide() !== "back") rotateTo(0);
+  const g = garment === "shirt" ? placements.shirt : placements.shorts;
+  const onThisSide = visiblePlacements(); // same rules as the inventory list (state.garment already updated)
+  const spot = firstOpen(onThisSide) || firstOpen([...g.front, ...(g.back || []), ...(g.sleeves || [])]) || g.front[0].id;
+  state.selected = spot;
+  const target = allPlacements.find((p) => p.id === spot);
+  if (!onThisSide.some((p) => p.id === spot)) rotateTo(SIDE_AZIMUTH[target.side]);
   renderAll();
 }
 
@@ -589,7 +597,7 @@ openPlacementsBtn.addEventListener("click", () => {
 /* ------------------------------------------------------------ bidding */
 async function loadBids() {
   try {
-    const res = await fetch(BIDS_URL, { cache: "no-store" });
+    const res = await fetch(BIDS_URL, { cache: "no-store", signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(8000) : undefined });
     if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
     state.auction = { minBid: data.minBid, increment: data.increment, lockPrice: data.lockPrice, deadline: data.deadline, online: true };
@@ -610,7 +618,9 @@ async function loadBidLogos() {
     catch { console.warn("Bidder logo failed to load", b.id); }
   }));
 }
-loadBids();
+// Gate the first render on live bids so we never land on a locked placement, but only briefly:
+// a slow or stalled API must not keep the viewer hidden. Polling keeps refreshing afterwards.
+const bidsReady = Promise.race([loadBids(), new Promise((r) => setTimeout(r, 4000))]);
 setInterval(loadBids, 30000);
 
 // Rasterise the previewed logo (max 800px, PNG) so it travels with the bid and survives a refresh.
@@ -739,7 +749,7 @@ function animate() {
     tween.t = Math.min(1, tween.t + dt * 2.2);
     const e = 1 - Math.pow(1 - tween.t, 3);
     applyAzimuth(tween.start + tween.delta * e, tween.polar, tween.dist);
-    if (tween.t >= 1) tween = null;
+    if (tween.t >= 1) { tween = null; lastSide = null; } // re-run the visibility check once the rotation settles
   }
   controls.update();
   state.azimuth = controls.getAzimuthalAngle();
@@ -747,7 +757,9 @@ function animate() {
   if (side !== lastSide) {
     lastSide = side;
     const visible = visiblePlacements();
-    if (visible.length && !visible.some((p) => p.id === state.selected)) { state.selected = firstOpen(visible); renderSlots(); renderSelection(); }
+    // Do not re-select while a programmatic rotation is carrying the user to a chosen placement.
+    const open = !tween && visible.length && !visible.some((p) => p.id === state.selected) ? firstOpen(visible) : null;
+    if (open) { state.selected = open; renderSlots(); renderSelection(); }
     renderInventory();
   }
   renderOrientation();

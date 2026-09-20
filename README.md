@@ -25,8 +25,15 @@ python3 -m http.server 4173
 
 This repo is the template for the sponsorship-portal service. The playbook lives in
 `.devin/skills/sponsorship-portal/` (`SKILL.md` plus `reference/intake.md`, `configuration.md`,
-`launch-checklist.md`, `gotchas.md`) and is picked up automatically by Devin as the `/sponsorship-portal`
-skill. Start a new portal with `gh repo create <org>/<athlete>-sponsor-portal --private --clone --template ShopHeck/heck-sponsor-360`.
+`launch-checklist.md`, `gotchas.md`). Inside this repo it is discovered automatically by **Devin**
+(`.devin/skills`), **Claude Code** (`.claude/skills`, symlink) and **Codex CLI** (`.agents/skills`, symlink; see also
+`AGENTS.md`). Start a new portal with
+`gh repo create <org>/<athlete>-sponsor-portal --private --clone --template ShopHeck/heck-sponsor-360`.
+
+To install it globally or hand it to a client, run `scripts/package-skill.sh` → `dist/skill/`:
+`sponsorship-portal-skill.zip` (upload to Claude.ai Skills, or unzip into `~/.claude/skills`, `~/.agents/skills`,
+`~/.config/devin/skills`) and `chatgpt/` (Custom GPT instructions ≤ 8000 chars + knowledge files). `dist/skill/INSTALL.md`
+has the per-tool steps.
 
 ### Local end-to-end test (no real Stripe or email)
 

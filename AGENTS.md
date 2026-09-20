@@ -14,7 +14,7 @@ operating one. `reference/gotchas.md` first when debugging.
   `node scripts/mock-services.mjs &` then `netlify dev` with `STRIPE_API_BASE`/`RESEND_API_BASE=http://127.0.0.1:4242`
   (see `scripts/smoke-test.sh` header), then `scripts/smoke-test.sh http://localhost:8888 <OPEN-ID-A> <OPEN-ID-B>`
   → must print `SMOKE TEST PASSED`. Reset the sandbox with `rm -rf .netlify/blobs-serve`.
-- Syntax check: `node --check public/app.js netlify/lib/*.mjs netlify/functions/*.mjs`
+- Syntax check: `for f in public/app.js netlify/lib/*.mjs netlify/functions/*.mjs scripts/*.mjs; do node --check "$f" || exit 1; done`
 - Package the skill for Claude / Codex / ChatGPT: `scripts/package-skill.sh` → `dist/skill/`
 - Production deploys happen from Git (`main`) via Netlify; do not `netlify deploy` a linked site.
 

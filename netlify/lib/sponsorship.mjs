@@ -7,7 +7,8 @@
      RESEND_API_KEY     – enables email
      NOTIFY_FROM        – verified Resend sender (default "Team Heck Sponsorships <sponsors@michaelheckert.com>")
      NOTIFY_EMAIL       – Michael's inbox (also the reply-to on sponsor emails)
-     PORTAL_URL         – public portal URL used in emails (falls back to Netlify's URL)
+     PORTAL_URL         – public URL sponsors should visit (the marketing site that embeds the portal, or the portal itself);
+                          deep links are PORTAL_URL/#PLACEMENT-ID. API links always use Netlify's URL.
 --------------------------------------------------------------------------- */
 export const MIN_BID = Number(process.env.MIN_BID) || 500;
 export const INCREMENT = Number(process.env.BID_INCREMENT) || 50;
@@ -16,6 +17,8 @@ export const DEADLINE = process.env.BID_DEADLINE || "2026-10-16T23:59:59-04:00";
 export const NOTIFY_EMAIL = process.env.NOTIFY_EMAIL || "michaelheckert@heckholdings.com";
 export const EVENT_NAME = process.env.EVENT_NAME || "BKFC Clearwater";
 const PORTAL_URL = process.env.PORTAL_URL || process.env.URL || "https://heck-sponsor-360.netlify.app";
+// The functions/API always live on the Netlify host, even when PORTAL_URL points at the marketing site that embeds the portal.
+const API_URL = process.env.URL || "https://heck-sponsor-360.netlify.app";
 const STRIPE_API = process.env.STRIPE_API_BASE || "https://api.stripe.com";
 const RESEND_API = process.env.RESEND_API_BASE || "https://api.resend.com";
 
@@ -245,7 +248,7 @@ export async function invoicePlacement(store, id, rec, kind) {
   await store.setJSON(id, rec);
   await notifyOwner(`${id} · ${kind === "lock" ? "LOCKED" : "WON"} for ${usd(rec.high)} · invoiced · ${b.company}`, [
     `Placement: ${id} — ${describePlacement(id)}`, `Action: ${kind === "lock" ? "Lock It Now" : "Auction closed — winning bid"}`, `Company: ${b.company}`, `Contact: ${b.name} <${b.email}>`, `Phone: ${b.phone || "-"}`,
-    rec.logo ? `Logo: ${new URL(`/api/logos/${id}`, PORTAL_URL)}` : "Logo: not uploaded — request artwork",
+    rec.logo ? `Logo: ${new URL(`/api/logos/${id}`, API_URL)}` : "Logo: not uploaded — request artwork",
     "", `Invoice ${rec.invoice.number || rec.invoice.id}: ${usd(rec.invoice.amount)} due on receipt`,
     `Sponsor pay link: ${rec.invoice.url}`,
     `Stripe dashboard: https://dashboard.stripe.com/invoices/${rec.invoice.id}`,

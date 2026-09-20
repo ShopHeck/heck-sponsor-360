@@ -21,6 +21,24 @@ python3 -m http.server 4173
 # open http://127.0.0.1:4173/
 ```
 
+## Reusing this for another athlete or event
+
+This repo is the template for the sponsorship-portal service. The playbook lives in
+`.devin/skills/sponsorship-portal/` (`SKILL.md` plus `reference/intake.md`, `configuration.md`,
+`launch-checklist.md`, `gotchas.md`) and is picked up automatically by Devin as the `/sponsorship-portal`
+skill. Start a new portal with `gh repo create <org>/<athlete>-sponsor-portal --private --clone --template ShopHeck/heck-sponsor-360`.
+
+### Local end-to-end test (no real Stripe or email)
+
+```sh
+node scripts/mock-services.mjs &          # fake Stripe + Resend on :4242
+STRIPE_SECRET_KEY=sk_test_mock STRIPE_API_BASE=http://127.0.0.1:4242 \
+RESEND_API_KEY=re_mock RESEND_API_BASE=http://127.0.0.1:4242 \
+NOTIFY_EMAIL=owner@example.test PORTAL_URL=http://localhost:8888 ADMIN_TOKEN=devtoken \
+npx netlify dev --offline --port 8888 &
+scripts/smoke-test.sh http://localhost:8888 TS-02 TF-09   # two OPEN placement ids
+```
+
 ## Deploy
 
 Deploy on Netlify: static files live in `public/`, and the bidding API is a Netlify Function (`netlify/functions/bids.mjs`, served at `/api/bids`) backed by Netlify Blobs. `netlify.toml` configures both. Run locally with `npm install && npx netlify dev`.

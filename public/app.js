@@ -689,6 +689,12 @@ async function submitBid(type) {
 bidForm.addEventListener("submit", (e) => { e.preventDefault(); submitBid("bid"); });
 lockButton.addEventListener("click", () => submitBid("lock"));
 
+// Hash edits after load (e.g. the host page forwarding a new /#ID into the embed) select that placement.
+window.addEventListener("hashchange", () => {
+  const spot = allPlacements.find((p) => p.id === decodeURIComponent(location.hash.slice(1)).toUpperCase());
+  if (spot) selectPlacement(spot.id, true);
+});
+
 /* ------------------------------------------------------- fight poster */
 const posterDialog = document.getElementById("posterDialog");
 document.getElementById("posterButton").addEventListener("click", () => posterDialog.showModal());

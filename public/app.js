@@ -331,16 +331,20 @@ loader.load(
     normalise(root);
     if (!facesPositiveZ(meshes)) { root.rotateY(Math.PI); normalise(root); }
     buildSlots(meshes);
-    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); scrollSelectedIntoView(); stage.classList.add("is-ready"); });
+    firstRender().then(() => stage.classList.add("is-ready"));
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
   (err) => {
     console.error(err);
     stage.classList.add("has-error");
     loadingEl.textContent = "The 3D model could not be loaded. Please refresh the page.";
-    Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); });
+    firstRender();
   }
 );
+// First paint once the sold list and live bids are known (used by both the model success and failure paths).
+function firstRender() {
+  return Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); scrollSelectedIntoView(); });
+}
 // Emails deep-link to a placement as /#SF-L1; otherwise land on the first OPEN placement,
 // preferring camera-facing positions: shorts front, T-shirt front, shorts back, T-shirt back, sleeves.
 const LANDING_ORDER = [...placements.shorts.front, ...placements.shirt.front, ...placements.shorts.back, ...placements.shirt.back, ...placements.shirt.sleeves];

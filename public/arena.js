@@ -13,12 +13,39 @@ const POST_COUNT = 8;
 const ROPE_HEIGHTS = [0.48, 0.8, 1.12, 1.44];
 const ROPE_COLORS = [0xb8241d, 0xe6e0d4, 0x1c1c1c, 0xb8241d];
 
+// Padded turnbuckle cover with the BKFC mark running vertically, repeated four
+// times around the cylinder so it reads from every camera angle.
+function padTexture(base, ink) {
+  const c = document.createElement("canvas");
+  c.width = 1024; c.height = 1024;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = base; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = ink;
+  ctx.font = "900 215px 'Barlow Condensed', Impact, sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (let i = 0; i < 4; i++) {
+    ctx.save();
+    ctx.translate(c.width * (i + 0.5) / 4, c.height / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.letterSpacing = "18px";
+    ctx.fillText("BKFC", 0, 0);
+    ctx.restore();
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 export function buildArena(scene) {
   const group = new THREE.Group();
   group.name = "ring";
 
   const postMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.55, metalness: 0.5 });
-  const padMat = new THREE.MeshStandardMaterial({ color: 0xb8241d, roughness: 0.95 });
+  const neutralPad = new THREE.MeshStandardMaterial({ map: padTexture("#111111", "#f4efe6"), roughness: 0.92 });
+  const redPad = new THREE.MeshStandardMaterial({ map: padTexture("#b8241d", "#f4efe6"), roughness: 0.92 });
+  const bluePad = new THREE.MeshStandardMaterial({ map: padTexture("#1f3f9a", "#f4efe6"), roughness: 0.92 });
+  const padFor = (i) => (i === 0 ? redPad : i === POST_COUNT / 2 ? bluePad : neutralPad);
   const capMat = new THREE.MeshStandardMaterial({ color: 0xe8e2d6, roughness: 0.9 });
   const steelMat = new THREE.MeshStandardMaterial({ color: 0x9a9a9a, roughness: 0.35, metalness: 0.9 });
   const postGeo = new THREE.CylinderGeometry(0.045, 0.045, 1.62, 16);
@@ -35,7 +62,7 @@ export function buildArena(scene) {
     const x = Math.cos(a) * RING_RADIUS, z = Math.sin(a) * RING_RADIUS;
     const post = new THREE.Mesh(postGeo, postMat); post.position.set(x, 0.81, z); post.castShadow = true; group.add(post);
     const base = new THREE.Mesh(baseGeo, postMat); base.position.set(x, 0.02, z); group.add(base);
-    const pad = new THREE.Mesh(padGeo, padMat); pad.position.set(x, 0.95, z); group.add(pad);
+    const pad = new THREE.Mesh(padGeo, padFor(i)); pad.position.set(x, 0.95, z); pad.rotation.y = -a; group.add(pad);
     const cap = new THREE.Mesh(capGeo, capMat); cap.position.set(x, 1.6, z); group.add(cap);
 
     // turnbuckles: one per rope, on the inside face of the post, tensioning the rope

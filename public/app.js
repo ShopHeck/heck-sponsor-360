@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { buildArena, ROPE_RADIUS } from "./arena.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { DecalGeometry } from "three/addons/geometries/DecalGeometry.js";
@@ -131,12 +132,14 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
 controls.minDistance = 1.2;
-controls.maxDistance = 6.5;
+controls.maxDistance = ROPE_RADIUS - 0.2; // stay inside the ropes
 controls.minPolarAngle = 0.9;
 controls.maxPolarAngle = 1.75;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.9;
 controls.addEventListener("start", () => { controls.autoRotate = false; });
+
+const arena = buildArena(scene);
 
 const key = new THREE.DirectionalLight(0xfff1e0, 2.2);
 key.position.set(2.5, 4.5, 3.5);
@@ -157,7 +160,7 @@ scene.add(fill);
 scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
 // Shadow-only floor so the fight-poster backdrop shows through and the athlete still grounds with a soft shadow.
-const floor = new THREE.Mesh(new THREE.CircleGeometry(2.4, 64), new THREE.ShadowMaterial({ opacity: 0.55 }));
+const floor = new THREE.Mesh(new THREE.CircleGeometry(ROPE_RADIUS + 0.4, 96), new THREE.ShadowMaterial({ opacity: 0.55 }));
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
@@ -762,6 +765,7 @@ function animate() {
     if (tween.t >= 1) { tween = null; lastSide = null; } // re-run the visibility check once the rotation settles
   }
   controls.update();
+  arena.update(clock.elapsedTime);
   state.azimuth = controls.getAzimuthalAngle();
   const side = currentSide();
   if (side !== lastSide) {

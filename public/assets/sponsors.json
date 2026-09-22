@@ -51,9 +51,17 @@
     "sponsor": "Mekkalabs",
     "logo": "assets/sponsors/mekkalabs.png"
   },
+  "SB-L2": {
+    "sponsor": "BabySNEK",
+    "logo": "assets/sponsors/babysnek.png"
+  },
   "TS-01": {
     "sponsor": "Mekkalabs",
     "logo": "assets/sponsors/mekkalabs.png"
+  },
+  "TS-02": {
+    "sponsor": "BabySNEK",
+    "logo": "assets/sponsors/babysnek.png"
   },
   "TB-01": {
     "sponsor": "Watchmen",

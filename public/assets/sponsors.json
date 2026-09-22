@@ -47,10 +47,6 @@
     "sponsor": "BluefitMD",
     "logo": "assets/sponsors/bluefitmd.png"
   },
-  "TF-08": {
-    "sponsor": "BabySNEK",
-    "logo": "assets/sponsors/babysnek.png"
-  },
   "SB-L1": {
     "sponsor": "Mekkalabs",
     "logo": "assets/sponsors/mekkalabs.png"
@@ -62,6 +58,10 @@
   "TS-01": {
     "sponsor": "Mekkalabs",
     "logo": "assets/sponsors/mekkalabs.png"
+  },
+  "TS-02": {
+    "sponsor": "BabySNEK",
+    "logo": "assets/sponsors/babysnek.png"
   },
   "TB-01": {
     "sponsor": "Watchmen",

@@ -59,10 +59,10 @@ const placements = {
 };
 const allPlacements = [...placements.shorts.front, ...placements.shorts.back, ...placements.shirt.front, ...placements.shirt.back, ...placements.shirt.sleeves];
 
-const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, azimuth: 0, bids: {}, auction: { minBid: 500, increment: 50, lockPrice: 2500, deadline: null, online: false } };
+const state = { garment: "shorts", selected: "SF-L1", hovered: null, logos: {}, logoImages: {}, sold: {}, soldImages: {}, bidImages: {}, azimuth: 0, bids: {}, auction: { minBid: 500, increment: 50, lockPrice: 2500, deadline: null, online: false } };
 const SPONSORS_URL = "assets/sponsors.json";
 const BIDS_URL = "/api/bids";
-const isLocked = (id) => Boolean(state.bids[id]?.locked);
+const isLocked = (id) => Boolean(state.bids[id]?.locked || state.bids[id]?.closed);
 const isSold = (id) => Boolean(state.sold[id]) || isLocked(id);
 const usd = (n) => `$${Math.round(n).toLocaleString("en-US")}`;
 const minimumBid = (id) => { const b = state.bids[id]; return Math.max(state.auction.minBid, b?.high ? b.high + state.auction.increment : 0); };
@@ -94,6 +94,10 @@ const lockButton = document.getElementById("lockButton");
 const bidNote = document.getElementById("bidNote");
 const lockPriceEl = document.getElementById("lockPrice");
 const lockLabel = document.getElementById("lockLabel");
+const bidSuccess = document.getElementById("bidSuccess");
+const bidSuccessTitle = document.getElementById("bidSuccessTitle");
+const bidSuccessText = document.getElementById("bidSuccessText");
+const bidSuccessLink = document.getElementById("bidSuccessLink");
 const toastEl = document.getElementById("toast");
 let toastTimer = null;
 function toast(message) {
@@ -155,7 +159,8 @@ fill.position.set(-2.5, 1.5, 3);
 scene.add(fill);
 scene.add(new THREE.AmbientLight(0xffffff, 0.15));
 
-const floor = new THREE.Mesh(new THREE.CircleGeometry(ROPE_RADIUS + 0.4, 96), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.55, metalness: 0.1 }));
+// Shadow-only floor so the fight-poster backdrop shows through and the athlete still grounds with a soft shadow.
+const floor = new THREE.Mesh(new THREE.CircleGeometry(ROPE_RADIUS + 0.4, 96), new THREE.ShadowMaterial({ opacity: 0.55 }));
 floor.rotation.x = -Math.PI / 2;
 floor.receiveShadow = true;
 scene.add(floor);
@@ -184,7 +189,7 @@ function drawSlot(slot) {
   const selected = spot.id === state.selected;
   const hovered = spot.id === state.hovered && !selected;
   g.clearRect(0, 0, c.width, c.height);
-  const soldImg = state.soldImages[spot.id];
+  const soldImg = state.soldImages[spot.id] || (isLocked(spot.id) ? state.bidImages[spot.id] : null);
   if (soldImg) {
     const pad = 6, bw = c.width - pad * 2, bh = c.height - pad * 2;
     const k = Math.min(bw / soldImg.width, bh / soldImg.height);
@@ -209,9 +214,9 @@ function drawSlot(slot) {
     g.setLineDash([]);
     g.fillStyle = selected ? "#f36a16" : "#fff"; g.textAlign = "center"; g.textBaseline = "middle";
     const bid = state.bids[spot.id];
-    if (bid?.locked) {
+    if (bid?.locked || bid?.closed) {
       g.font = `700 ${Math.round(c.height * 0.26)}px "Barlow Condensed", Impact, sans-serif`;
-      g.fillText("LOCKED", c.width / 2, c.height / 2 + 2);
+      g.fillText(bid.locked ? "LOCKED" : "WON", c.width / 2, c.height / 2 + 2);
     } else if (bid?.high) {
       g.font = `700 ${Math.round(c.height * 0.28)}px "Barlow Condensed", Impact, sans-serif`;
       g.fillText(spot.id.replace(/^[A-Z]+-/, ""), c.width / 2, c.height * 0.36);
@@ -294,7 +299,7 @@ function normalise(root) {
 function loadImage(src) {
   return new Promise((resolve, reject) => { const img = new Image(); img.onload = () => resolve(img); img.onerror = reject; img.src = src; });
 }
-const sponsorsReady = fetch(SPONSORS_URL)
+const sponsorsReady = fetch(SPONSORS_URL, { cache: "no-store" })
   .then((r) => (r.ok ? r.json() : {}))
   .then((data) => Promise.all(Object.entries(data).map(async ([id, entry]) => {
     if (!allPlacements.some((p) => p.id === id)) { console.warn("Unknown placement in sponsors.json", id); return; }
@@ -329,16 +334,31 @@ loader.load(
     normalise(root);
     if (!facesPositiveZ(meshes)) { root.rotateY(Math.PI); normalise(root); }
     buildSlots(meshes);
-    sponsorsReady.then(() => { state.selected = firstOpen(placements.shorts.front); renderAll(); stage.classList.add("is-ready"); });
+    firstRender().then(() => stage.classList.add("is-ready"));
   },
   (xhr) => { if (xhr.total) loadingEl.textContent = `Loading 3D model… ${Math.round((xhr.loaded / xhr.total) * 100)}%`; },
   (err) => {
     console.error(err);
     stage.classList.add("has-error");
     loadingEl.textContent = "The 3D model could not be loaded. Please refresh the page.";
-    sponsorsReady.then(() => { state.selected = firstOpen(placements.shorts.front); renderAll(); });
+    firstRender();
   }
 );
+// First paint once the sold list and live bids are known (used by both the model success and failure paths).
+function firstRender() {
+  return Promise.all([sponsorsReady, bidsReady]).then(() => { selectInitial(); renderAll(); scrollSelectedIntoView(); });
+}
+// Emails deep-link to a placement as /#SF-L1; otherwise land on the first OPEN placement,
+// preferring camera-facing positions: shorts front, T-shirt front, shorts back, T-shirt back, sleeves.
+const LANDING_ORDER = [...placements.shorts.front, ...placements.shirt.front, ...placements.shorts.back, ...placements.shirt.back, ...placements.shirt.sleeves];
+function selectInitial() {
+  const wanted = decodeURIComponent(location.hash.slice(1)).toUpperCase();
+  const linked = allPlacements.find((p) => p.id === wanted);
+  const spot = linked || LANDING_ORDER.find((p) => !isSold(p.id)) || placements.shorts.front[0];
+  state.selected = spot.id;
+  state.garment = garmentOf(spot.id);
+  if (linked || currentSide() !== spot.side) rotateTo(SIDE_AZIMUTH[spot.side]);
+}
 
 /* ----------------------------------------------------------- UI logic */
 function currentSide() {
@@ -373,11 +393,11 @@ function renderInventory() {
   items.forEach((spot, index) => {
     const sold = state.sold[spot.id];
     const bid = state.bids[spot.id];
-    const locked = !sold && bid?.locked;
+    const locked = !sold && (bid?.locked || bid?.closed);
     const button = document.createElement("button");
     button.className = `inventory-item${spot.id === state.selected ? " is-selected" : ""}${sold || locked ? " is-sold" : ""}`;
-    const title = sold ? sold.sponsor : locked ? bid.lockedBy || "Locked" : spot.name;
-    const status = sold ? "SOLD" : locked ? "LOCKED" : bid?.high ? `BID ${usd(bid.high)}` : `OPEN · ${usd(state.auction.minBid)}`;
+    const title = sold ? sold.sponsor : locked ? bid.lockedBy || bid.company || "Locked" : spot.name;
+    const status = sold ? "SOLD" : locked ? (bid.locked ? "LOCKED" : "WON") : bid?.high ? `BID ${usd(bid.high)}` : `OPEN · ${usd(state.auction.minBid)}`;
     button.innerHTML = `<span class="num">${String(index + 1).padStart(2, "0")}</span><span><strong>${escapeHtml(title)}</strong><small>${spot.id}${sold || locked ? " · " + spot.name : ""}</small></span><span class="status">${status}</span>`;
     button.setAttribute("aria-pressed", String(spot.id === state.selected));
     button.addEventListener("click", () => selectPlacement(spot.id, true));
@@ -405,24 +425,28 @@ function renderSelection() {
   const spot = findPlacement();
   const sold = state.sold[spot.id];
   const bid = state.bids[spot.id];
-  const locked = !sold && bid?.locked;
+  const locked = !sold && (bid?.locked || bid?.closed);
+  const holder = locked ? bid.lockedBy || bid.company : null;
   selectionCode.textContent = spot.id;
-  selectionStatus.textContent = sold ? "SOLD" : locked ? "LOCKED" : bid?.high ? "BIDDING" : "AVAILABLE";
+  selectionStatus.textContent = sold ? "SOLD" : locked ? (bid.locked ? "LOCKED" : "WON") : bid?.high ? "BIDDING" : "AVAILABLE";
   selectionCard.classList.toggle("is-sold", Boolean(sold || locked));
-  selectionName.textContent = sold ? sold.sponsor : locked ? bid.lockedBy || "Locked in" : spot.name;
+  selectionName.textContent = sold ? sold.sponsor : locked ? holder || "Locked in" : spot.name;
   selectionDescription.textContent = sold ? `${spot.name}. This placement is confirmed for ${sold.sponsor}.`
-    : locked ? `${spot.name}. This placement has been locked in${bid.lockedBy ? ` by ${bid.lockedBy}` : ""} and is pending confirmation.`
+    : locked ? `${spot.name}. ${bid.locked ? "This placement has been locked in" : "Bidding has closed and this placement was won"}${holder ? ` by ${holder}` : ""}; the invoice has been issued.`
     : spot.detail;
+  if (renderSelection.lastId !== spot.id) bidSuccess.hidden = true;
+  renderSelection.lastId = spot.id;
   renderBidPanel(spot, bid);
   uploadLabel.textContent = state.logos[spot.id] ? "Replace logo preview" : "Upload logo preview";
   const preview = state.logos[spot.id];
-  previewThumb.hidden = !preview || Boolean(sold);
+  previewThumb.hidden = !preview || Boolean(sold || locked);
   if (preview) previewImg.src = preview;
-  sponsorLogoEl.hidden = !sold || !state.soldImages[spot.id];
-  if (sold && state.soldImages[spot.id]) {
-    sponsorLogoEl.src = sold.logo;
-    sponsorLogoEl.alt = `${sold.sponsor} logo`;
-    sponsorLogoEl.classList.toggle("is-dark-art", isDarkArtwork(state.soldImages[spot.id]));
+  const cardLogo = sold ? state.soldImages[spot.id] : locked ? state.bidImages[spot.id] : null;
+  sponsorLogoEl.hidden = !cardLogo;
+  if (cardLogo) {
+    sponsorLogoEl.src = cardLogo.src;
+    sponsorLogoEl.alt = `${sold ? sold.sponsor : holder || "Sponsor"} logo`;
+    sponsorLogoEl.classList.toggle("is-dark-art", isDarkArtwork(cardLogo));
   }
   const anyOpen = allPlacements.some((p) => !isSold(p.id));
   openPlacementsBtn.hidden = !sold || !anyOpen;
@@ -451,7 +475,7 @@ function renderBidPanel(spot, bid) {
   if (switched) bidError.hidden = true;
   if (state.auction.deadline) {
     const d = new Date(state.auction.deadline);
-    bidNote.firstChild.textContent = `Bids start at ${usd(minBid)} in ${usd(increment)} steps and close ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}. Nothing is charged here — Michael confirms winning bids and lock-ins personally. `;
+    bidNote.firstChild.textContent = `Bids start at ${usd(minBid)} in ${usd(increment)} steps and close ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" })}. Nothing is charged on this page — lock-ins receive a Stripe invoice by email right away, and the winning bidder is invoiced when bidding closes. `;
   }
 }
 const garmentOf = (id) => (id.startsWith("T") ? "shirt" : "shorts");
@@ -478,11 +502,15 @@ function selectPlacement(id, focus = false) {
     if (Math.abs(delta) > 0.6) rotateTo(cur + delta);
   }
 }
-function firstOpen(list) { return (list.find((p) => !isSold(p.id)) || list[0]).id; }
+function firstOpen(list) { return list.find((p) => !isSold(p.id))?.id || null; }
 function setGarment(garment) {
   state.garment = garment;
-  state.selected = firstOpen(garment === "shirt" ? placements.shirt.front : placements.shorts.front);
-  if (currentSide() !== "front" && currentSide() !== "back") rotateTo(0);
+  const g = garment === "shirt" ? placements.shirt : placements.shorts;
+  const onThisSide = visiblePlacements(); // same rules as the inventory list (state.garment already updated)
+  const spot = firstOpen(onThisSide) || firstOpen([...g.front, ...(g.back || []), ...(g.sleeves || [])]) || g.front[0].id;
+  state.selected = spot;
+  const target = allPlacements.find((p) => p.id === spot);
+  if (!onThisSide.some((p) => p.id === spot)) rotateTo(SIDE_AZIMUTH[target.side]);
   renderAll();
 }
 
@@ -576,43 +604,84 @@ openPlacementsBtn.addEventListener("click", () => {
 /* ------------------------------------------------------------ bidding */
 async function loadBids() {
   try {
-    const res = await fetch(BIDS_URL, { cache: "no-store" });
+    const res = await fetch(BIDS_URL, { cache: "no-store", signal: typeof AbortSignal.timeout === "function" ? AbortSignal.timeout(8000) : undefined });
     if (!res.ok) throw new Error(res.statusText);
     const data = await res.json();
     state.auction = { minBid: data.minBid, increment: data.increment, lockPrice: data.lockPrice, deadline: data.deadline, online: true };
     state.bids = data.placements || {};
+    await loadBidLogos();
   } catch (err) {
     console.warn("bids unavailable", err);
     state.auction.online = false;
   }
   renderSlots(); renderInventory(); renderSelection();
 }
-loadBids();
+async function loadBidLogos() {
+  await Promise.all(Object.values(state.bids).map(async (b) => {
+    if (!b.logo) { delete state.bidImages[b.id]; return; }
+    const url = new URL(b.logo, location.href).href;
+    if (state.bidImages[b.id]?.src === url) return;
+    try { state.bidImages[b.id] = await loadImage(url); }
+    catch { console.warn("Bidder logo failed to load", b.id); }
+  }));
+}
+// Gate the first render on live bids so we never land on a locked placement, but only briefly:
+// a slow or stalled API must not keep the viewer hidden. Polling keeps refreshing afterwards.
+const bidsReady = Promise.race([loadBids(), new Promise((r) => setTimeout(r, 4000))]);
 setInterval(loadBids, 30000);
 
+// Rasterise the previewed logo (max 800px, PNG) so it travels with the bid and survives a refresh.
+function logoDataUrl(id) {
+  const img = state.logoImages[id];
+  if (!img) return null;
+  const k = Math.min(1, 800 / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+  const c = document.createElement("canvas");
+  c.width = Math.max(1, Math.round((img.naturalWidth || img.width) * k)); c.height = Math.max(1, Math.round((img.naturalHeight || img.height) * k));
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  try { return c.toDataURL("image/png"); } catch { return null; }
+}
 function showBidError(message) { bidError.textContent = message; bidError.hidden = false; }
+function showBidSuccess(spot, data, locked, email) {
+  bidSuccessLink.hidden = !data.invoiceUrl;
+  if (data.invoiceUrl) bidSuccessLink.href = data.invoiceUrl;
+  if (locked) {
+    bidSuccessTitle.textContent = `${spot.id} is yours`;
+    bidSuccessText.textContent = data.invoiceUrl
+      ? `Your ${usd(state.auction.lockPrice)} Stripe invoice is ready — pay it below${data.emailed ? ` or from the copy we sent to ${email}` : ""}. Michael will follow up for your artwork once it's paid.`
+      : `Michael will email your ${usd(state.auction.lockPrice)} invoice to ${email} shortly.`;
+  } else {
+    bidSuccessTitle.textContent = `High bid: ${usd(data.placement.high)}`;
+    bidSuccessText.textContent = `Confirmation sent to ${email}.${state.logoImages[spot.id] ? " Your logo is saved with your bid." : ""} We'll let you know if you're outbid; the winning bidder is invoiced when bidding closes.`;
+  }
+  bidSuccess.hidden = false;
+  bidSuccess.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
 async function submitBid(type) {
   const spot = findPlacement();
   if (isSold(spot.id)) return;
   const f = bidForm.elements;
-  const payload = { id: spot.id, type, company: f.company.value.trim(), name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(), amount: Number(f.amount.value) };
+  const payload = { id: spot.id, type, company: f.company.value.trim(), name: f.name.value.trim(), email: f.email.value.trim(), phone: f.phone.value.trim(), amount: Number(f.amount.value), logo: logoDataUrl(spot.id) };
   if (!payload.company || !payload.name) return showBidError("Please enter your company and contact name.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) return showBidError("Please enter a valid email address.");
   if (type === "bid" && (!Number.isFinite(payload.amount) || payload.amount < minimumBid(spot.id))) return showBidError(`Your bid must be at least ${usd(minimumBid(spot.id))}.`);
-  if (type === "lock" && !confirm(`Lock ${spot.id} · ${spot.name} now for ${usd(state.auction.lockPrice)}? This closes bidding and Michael will contact you to confirm.`)) return;
+  if (type === "lock" && !confirm(`Lock ${spot.id} · ${spot.name} now for ${usd(state.auction.lockPrice)}? This closes bidding on the placement and a Stripe invoice for ${usd(state.auction.lockPrice)} will be emailed to ${payload.email}.`)) return;
   bidError.hidden = true;
   submitBid.busy = true;
+  bidSuccess.hidden = true;
   bidButton.disabled = lockButton.disabled = true;
   const busy = type === "lock" ? lockLabel : bidButton;
   const label = busy.textContent; busy.textContent = "Sending…";
   try {
     const res = await fetch(BIDS_URL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
     const data = await res.json().catch(() => ({}));
-    if (data.placement) state.bids[spot.id] = data.placement;
+    if (data.placement) { state.bids[spot.id] = data.placement; await loadBidLogos(); }
     if (!res.ok) { showBidError(data.error || "Your request could not be saved. Please try again."); renderSlots(); renderInventory(); renderSelection(); return; }
-    toast(type === "lock" ? `${spot.id} is locked in for ${usd(state.auction.lockPrice)}. Michael will be in touch.` : `You're the high bidder on ${spot.id} at ${usd(data.placement.high)}.`);
+    const locked = Boolean(data.placement?.locked);
     renderSlots(); renderInventory(); renderSelection();
-  } catch {
+    showBidSuccess(spot, data, locked, payload.email);
+    toast(locked ? `${spot.id} is locked in for ${usd(state.auction.lockPrice)}.` : `You're the high bidder on ${spot.id} at ${usd(data.placement.high)}.`);
+  } catch (err) {
+    console.error(err);
     showBidError("Network error — please try again.");
   } finally {
     submitBid.busy = false;
@@ -622,6 +691,18 @@ async function submitBid(type) {
 }
 bidForm.addEventListener("submit", (e) => { e.preventDefault(); submitBid("bid"); });
 lockButton.addEventListener("click", () => submitBid("lock"));
+
+// Hash edits after load (e.g. the host page forwarding a new /#ID into the embed) select that placement.
+window.addEventListener("hashchange", () => {
+  const spot = allPlacements.find((p) => p.id === decodeURIComponent(location.hash.slice(1)).toUpperCase());
+  if (spot) selectPlacement(spot.id, true);
+});
+
+/* ------------------------------------------------------- fight poster */
+const posterDialog = document.getElementById("posterDialog");
+document.getElementById("posterButton").addEventListener("click", () => posterDialog.showModal());
+document.getElementById("posterClose").addEventListener("click", () => posterDialog.close());
+posterDialog.addEventListener("click", (e) => { if (e.target === posterDialog) posterDialog.close(); });
 
 /* -------------------------------------------------------------- embed */
 const embedDialog = document.getElementById("embedDialog");
@@ -649,7 +730,9 @@ copyButton.addEventListener("click", async () => {
 if (isEmbedded) {
   let lastHeight = 0;
   const postHeight = () => {
-    const height = Math.ceil(document.documentElement.scrollHeight);
+    // Measure the body, not documentElement.scrollHeight: the latter is never smaller than the
+    // iframe viewport, so the host frame could grow but never shrink back to the content.
+    const height = Math.ceil(document.body.getBoundingClientRect().height);
     if (height === lastHeight) return;
     lastHeight = height;
     window.parent.postMessage({ type: "heck-portal-height", height }, "*");
@@ -679,7 +762,7 @@ function animate() {
     tween.t = Math.min(1, tween.t + dt * 2.2);
     const e = 1 - Math.pow(1 - tween.t, 3);
     applyAzimuth(tween.start + tween.delta * e, tween.polar, tween.dist);
-    if (tween.t >= 1) tween = null;
+    if (tween.t >= 1) { tween = null; lastSide = null; } // re-run the visibility check once the rotation settles
   }
   controls.update();
   arena.update(clock.elapsedTime);
@@ -688,7 +771,9 @@ function animate() {
   if (side !== lastSide) {
     lastSide = side;
     const visible = visiblePlacements();
-    if (visible.length && !visible.some((p) => p.id === state.selected)) { state.selected = firstOpen(visible); renderSlots(); renderSelection(); }
+    // Do not re-select while a programmatic rotation is carrying the user to a chosen placement.
+    const open = !tween && visible.length && !visible.some((p) => p.id === state.selected) ? firstOpen(visible) : null;
+    if (open) { state.selected = open; renderSlots(); renderSelection(); }
     renderInventory();
   }
   renderOrientation();

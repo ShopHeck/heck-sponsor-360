@@ -1,6 +1,7 @@
 [build]
   publish = "public"
   functions = "netlify/functions"
+  command = "node scripts/stamp-assets.mjs"
 
 [functions]
   node_bundler = "esbuild"
@@ -8,4 +9,21 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "frame-ancestors https://teamheck.netlify.app https://*.netlify.app;"
+    Content-Security-Policy = "frame-ancestors https://teamheck.netlify.app https://*.netlify.app https://michaelheckert.com https://*.michaelheckert.com;"
+
+# Our own assets are re-stamped every deploy (see scripts/stamp-assets.mjs), so
+# tell browsers and the Cloudflare proxy not to hold on to the un-stamped copies.
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/assets/sponsors.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

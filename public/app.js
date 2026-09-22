@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { buildArena, RING_RADIUS } from "./arena.js";
+import { buildArena, ROPE_RADIUS } from "./arena.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { DecalGeometry } from "three/addons/geometries/DecalGeometry.js";
@@ -118,7 +118,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.7;
 
-const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 90);
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 40);
 const TARGET = new THREE.Vector3(0, 1.0, 0);
 camera.position.set(0, 1.05, 3.3);
 
@@ -128,34 +128,40 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.enablePan = false;
 controls.minDistance = 1.2;
-controls.maxDistance = RING_RADIUS - 0.25; // stay inside the ropes
+controls.maxDistance = ROPE_RADIUS - 0.2; // stay inside the ropes
 controls.minPolarAngle = 0.9;
-controls.maxPolarAngle = 1.62;
+controls.maxPolarAngle = 1.75;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 0.9;
 controls.addEventListener("start", () => { controls.autoRotate = false; });
 
 const arena = buildArena(scene);
 
-// Follow-spots on the athlete, so the ring around him falls off into the arena dark.
-const key = new THREE.SpotLight(0xfff1e0, 85, 14, 0.36, 0.6, 1.6);
+const key = new THREE.DirectionalLight(0xfff1e0, 2.2);
 key.position.set(2.5, 4.5, 3.5);
-key.target.position.set(0, 1, 0);
 key.castShadow = true;
 key.shadow.mapSize.set(2048, 2048);
 key.shadow.camera.near = 1; key.shadow.camera.far = 12;
+key.shadow.camera.left = key.shadow.camera.bottom = -1.6;
+key.shadow.camera.right = key.shadow.camera.top = 1.6;
 key.shadow.bias = -0.0005; key.shadow.normalBias = 0.03;
 key.shadow.radius = 4;
-scene.add(key, key.target);
-const rim = new THREE.SpotLight(0xf36a16, 60, 14, 0.5, 0.7, 1.6);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xf36a16, 1.2);
 rim.position.set(-3, 2.2, -3.5);
-rim.target.position.set(0, 1, 0);
-scene.add(rim, rim.target);
-const fill = new THREE.SpotLight(0x8fa3ff, 20, 14, 0.6, 0.8, 1.6);
+scene.add(rim);
+const fill = new THREE.DirectionalLight(0x8fa3ff, 0.45);
 fill.position.set(-2.5, 1.5, 3);
-fill.target.position.set(0, 1, 0);
-scene.add(fill, fill.target);
-scene.add(new THREE.AmbientLight(0xffffff, 0.1));
+scene.add(fill);
+scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+
+const floor = new THREE.Mesh(new THREE.CircleGeometry(ROPE_RADIUS + 0.4, 96), new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.55, metalness: 0.1 }));
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.62, 0.66, 96), new THREE.MeshBasicMaterial({ color: 0xf36a16, transparent: true, opacity: 0.85, side: THREE.DoubleSide }));
+ring.rotation.x = -Math.PI / 2; ring.position.y = 0.002;
+scene.add(ring);
 
 const athlete = new THREE.Group();
 scene.add(athlete);
